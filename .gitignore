@@ -13,6 +13,7 @@ inkbrush.config.ts
 src/content/notes/
 src/content/vault/
 public/papers/
+public/vault-static/
 
 # misc
 .DS_Store
