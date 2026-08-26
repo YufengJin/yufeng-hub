@@ -25,6 +25,9 @@ export const strings: UIStrings = {
 
   languages: '语言',
 
+  navNotes: '笔记',
+  navPapers: '论文墙',
+
   breadcrumb: '面包屑',
   contents: '目录',
   chapterNav: '章节导航',

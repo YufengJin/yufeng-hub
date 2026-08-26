@@ -1,116 +1,483 @@
 ---
 /**
- * The garden's landing page, in one locale — taxonomy-driven: masthead with
- * counts → facet index → recently updated → one shelf per primary domain →
- * status legend. Everything on it comes from the note collection; adding a
- * note changes this page without touching it. Every locale's route renders
- * this one component with its locale.
+ * The landing page, in one locale — apple.com-homepage shaped: a centered
+ * hero, one big tile per section (notes / the paper wall), a domain grid,
+ * and a minimal footer. Everything on it comes from the collections; adding
+ * a note or a poster changes this page without touching it.
  */
+import { existsSync, readdirSync } from 'node:fs';
+
 import { getCollection } from 'astro:content';
-import FacetNav from 'astro-inkstone/components/wiki/FacetNav.astro';
-import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
-import BrowseLayout from '../../layouts/BrowseLayout.astro';
-import { browseHrefFor, cardOf, facetBaseFor, facetsOf, localized, subLocaleOf } from '../../lib/display';
+import Base from '../../layouts/Base.astro';
+import { browseHrefFor, localized } from '../../lib/display';
 import { browseAlternates, GITHUB_URL, href, localePrefix, UI, type Locale } from '../../lib/i18n';
-import { getWikiUnits, groupByPrimaryDomain } from '../../lib/taxonomy';
-import { STATUSES } from '../../content/notes/_meta/taxonomy';
+import { getWikiUnits } from '../../lib/taxonomy';
+import { DOMAINS } from '../../content/notes/_meta/taxonomy';
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
 const t = UI[locale];
-const b = t.browse;
-const sub = subLocaleOf(locale);
 const links = browseHrefFor(locale);
+const p = localePrefix(locale);
 
 const units = await getWikiUnits();
-const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
-const shelves = groupByPrimaryDomain(units);
 const recent = units.slice(0, 3);
-const facets = facetsOf(units, locale);
 const domainCount = new Set(units.flatMap((u) => u.domains)).size;
-const card = (note: (typeof units)[number]) => cardOf(note, locale, byId);
+
+// a card titles itself after the note's mirror in the page's locale when one
+// exists; its link goes to that mirror, else to the primary edition
+const byId = new Map((await getCollection('notes')).map((n) => [n.id, n]));
+const editionOf = (u: (typeof units)[number]) => {
+  const mirror = byId.get(`${p}${u.id}`);
+  return { entry: mirror ?? u.entry, id: mirror ? `${p}${u.id}` : u.id };
+};
+
+const papers = (await getCollection('papers'))
+  .map((e) => e.data)
+  .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
+/** first WebP in a poster's img/ dir — the teaser figure */
+const coverOf = (slug: string): string | null => {
+  const dir = `public/papers/${slug}/img`;
+  if (!existsSync(dir)) return null;
+  const first = readdirSync(dir)
+    .filter((f) => f.endsWith('.webp'))
+    .sort()[0];
+  return first ? href(`papers/${slug}/img/${first}`) : null;
+};
+const covers = papers
+  .map((e) => ({ slug: e.slug, cover: coverOf(e.slug), title: e.title_zh ?? e.title ?? e.slug }))
+  .filter((c) => c.cover)
+  .slice(0, 4);
+
+const noteUrl = (id: string): string => href(`${id}/`);
+const domainOf = (u: (typeof units)[number]) => u.domains[0] && DOMAINS.find((d) => d.id === u.domains[0]);
+
+const T = {
+  zh: {
+    eyebrow: '个人知识园地',
+    heroSub: '读过、想过、写下来。笔记、论文与项目记录，都在这里生长。',
+    ctaNotes: '浏览笔记',
+    ctaPapers: '看论文墙',
+    notesTitle: '笔记园地',
+    notesSub: `${units.length} 篇笔记 · ${domainCount} 个方向 · 按形式、方向与标签浏览`,
+    notesLink: '全部笔记',
+    recentLabel: '最近更新',
+    papersTitle: '论文墙',
+    papersSub: `${papers.length} 张中文图文海报，每读一篇论文就多一张`,
+    papersLink: '进入论文墙',
+    domainsTitle: '按方向探索',
+    domainCountOf: (n: number) => `${n} 篇`,
+    domainEmpty: '待播种',
+    searchHint: '⌘K 全站搜索',
+  },
+  en: {
+    eyebrow: 'A personal knowledge garden',
+    heroSub: 'Read, thought through, written down. Notes, papers and project records — all growing here.',
+    ctaNotes: 'Browse notes',
+    ctaPapers: 'See the paper wall',
+    notesTitle: 'The garden',
+    notesSub: `${units.length} notes · ${domainCount} domains · browse by kind, domain and tag`,
+    notesLink: 'All notes',
+    recentLabel: 'Recently updated',
+    papersTitle: 'Paper wall',
+    papersSub: `${papers.length} poster digests — one more with every paper read`,
+    papersLink: 'Enter the paper wall',
+    domainsTitle: 'Explore by domain',
+    domainCountOf: (n: number) => `${n} notes`,
+    domainEmpty: 'to be planted',
+    searchHint: '⌘K to search',
+  },
+}[locale];
+
+const domainTiles = DOMAINS.map((d) => ({
+  ...localized('domain', d, locale),
+  count: units.filter((u) => u.domains.includes(d.id)).length,
+  href: links.domain(d.id),
+}));
 ---
 
-<BrowseLayout
+<Base
   title={t.landingTitle}
   description={t.landingDesc}
   locale={locale}
   alternates={browseAlternates('')}
+  bodyClass="home"
 >
-  <header class="wb-hero">
-    <p class="wb-kicker">{b.kicker} <span class="sep">·</span> {b.kickerSub}</p>
-    <h1 class="wb-title">{b.title}<span class="en">{b.titleSub}</span></h1>
-    <p class="wb-lede">
-      {b.lede(units.length, domainCount)}{b.sep}<a href={href(`${localePrefix(locale)}papers/`)}>{b.papersLink}</a> ·{' '}
-      <a href={GITHUB_URL}>GitHub</a>{b.stop}
-    </p>
-  </header>
+  <main id="main" class="home-main">
+    <section class="hero">
+      <p class="eyebrow">{T.eyebrow}</p>
+      <h1>Yufeng Hub</h1>
+      <p class="hero-sub">{T.heroSub}</p>
+      <div class="ctas">
+        <a class="pill solid" href={links.all()}>{T.ctaNotes}</a>
+        <a class="pill ghost" href={href(`${p}papers/`)}>{T.ctaPapers} <span aria-hidden="true">›</span></a>
+      </div>
+      <p class="search-hint">{T.searchHint}</p>
+    </section>
 
-  <FacetNav
-    base={facetBaseFor(locale)}
-    kinds={facets.kinds}
-    domains={facets.domains}
-    statuses={facets.statuses}
-    tags={facets.tags}
-    labels={facets.labels}
-  />
+    <section class="tile">
+      <div class="tile-head">
+        <h2>{T.notesTitle}</h2>
+        <p>{T.notesSub}</p>
+        <a class="tile-link" href={links.all()}>{T.notesLink} <span aria-hidden="true">›</span></a>
+      </div>
+      <p class="strip-label">{T.recentLabel}</p>
+      <ul class="recent">
+        {
+          recent.map((u) => {
+            const d = domainOf(u);
+            const ed = editionOf(u);
+            return (
+              <li>
+                <a href={noteUrl(ed.id)}>
+                  {d && <span class="chip" style={`--chip-fg:${d.tone.fg};--chip-bg:${d.tone.bg}`}>{localized('domain', d, locale).label}</span>}
+                  <span class="r-title">{ed.entry.data.title}</span>
+                  {ed.entry.data.description && <span class="r-desc">{ed.entry.data.description}</span>}
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </section>
 
-  <section class="wb-shelf" aria-label={b.recent}>
-    <div class="wb-shelf-head">
-      <h2 class="wb-shelf-title">{b.recent}</h2>
-      <span class="wb-shelf-en">{b.recentSub}</span>
-    </div>
-    <ul class="wb-grid">
-      {recent.map((note) => <NoteCard note={card(note)} labels={{ chapters: b.chapters }} />)}
-    </ul>
-  </section>
+    <section class="tile tile-dark">
+      <div class="tile-head">
+        <h2>{T.papersTitle}</h2>
+        <p>{T.papersSub}</p>
+        <a class="tile-link" href={href(`${p}papers/`)}>{T.papersLink} <span aria-hidden="true">›</span></a>
+      </div>
+      <ul class="covers">
+        {
+          covers.map((c) => (
+            <li>
+              <a href={href(`papers/${c.slug}/`)} title={c.title}>
+                <img src={c.cover} alt={c.title} loading="lazy" decoding="async" />
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
 
-  {
-    shelves.map(({ def, notes }) => {
-      const d = localized('domain', def, locale);
-      return (
-        <section class="wb-shelf" style={`--shelf-fg:${def.tone.fg}`}>
-          <div class="wb-shelf-head">
-            <h2 class="wb-shelf-title">{d.label}</h2>
-            <span class="wb-shelf-en">{localized('domain', def, sub).label}</span>
-            <a class="wb-shelf-count" href={links.domain(def.id)}>
-              {b.shelfCount(notes.length)}
-            </a>
-          </div>
-          <p class="wb-shelf-desc">{d.desc}</p>
-          <ul class="wb-grid">
-            {notes.map((note) => (
-              <NoteCard note={card(note)} labels={{ chapters: b.chapters }} />
-            ))}
-          </ul>
-        </section>
-      );
-    })
+    <section class="domains">
+      <h2>{T.domainsTitle}</h2>
+      <ul class="domain-grid">
+        {
+          /* a domain with no notes has no facet route yet — its tile stays,
+             linkless, as a "to be planted" placeholder */
+          domainTiles.map((d) =>
+            d.count > 0 ? (
+              <li>
+                <a href={d.href}>
+                  <span class="d-label">{d.label}</span>
+                  <span class="d-desc">{d.desc}</span>
+                  <span class="d-count">{T.domainCountOf(d.count)} <span aria-hidden="true">›</span></span>
+                </a>
+              </li>
+            ) : (
+              <li>
+                <span class="d-tile-empty">
+                  <span class="d-label">{d.label}</span>
+                  <span class="d-desc">{d.desc}</span>
+                  <span class="d-count d-count-empty">{T.domainEmpty}</span>
+                </span>
+              </li>
+            ),
+          )
+        }
+      </ul>
+    </section>
+
+    <footer class="home-foot">
+      <span>{t.footer}</span>
+      <a href={GITHUB_URL}>GitHub</a>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  .home-main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 22px 80px;
+    font-family: var(--font-ui);
   }
 
-  <footer class="wb-legend">
-    {
-      /* each status links to its /status/<id>/ browse page; a status no
-         note carries yet stays plain text (its route does not prerender) */
-      STATUSES.map((s) => {
-        const d = localized('status', s, locale);
-        return units.some((u) => u.status === s.id) ? (
-          <a class="wb-legend-item" href={links.status(s.id)}>
-            <span class="dot" style={`background:${s.dot}`} aria-hidden="true" />
-            {d.label} — {d.desc}
-          </a>
-        ) : (
-          <span class="wb-legend-item">
-            <span class="dot" style={`background:${s.dot}`} aria-hidden="true" />
-            {d.label} — {d.desc}
-          </span>
-        );
-      })
+  /* ---- hero ---- */
+  .hero {
+    text-align: center;
+    padding: 96px 0 72px;
+  }
+  .eyebrow {
+    font: 600 14px/1 var(--font-ui);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin: 0 0 18px;
+  }
+  .hero h1 {
+    font: 700 clamp(52px, 9vw, 88px) / 1.02 var(--font-display);
+    letter-spacing: -0.03em;
+    color: var(--color-ink);
+    margin: 0 0 20px;
+  }
+  .hero-sub {
+    font: 400 clamp(17px, 2.4vw, 24px) / 1.45 var(--font-ui);
+    color: var(--color-ink-soft);
+    max-width: 560px;
+    margin: 0 auto 30px;
+    text-wrap: balance;
+  }
+  .ctas {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 980px;
+    font: 500 16px/1.2 var(--font-ui);
+    text-decoration: none;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+  .pill.solid {
+    background: var(--color-accent);
+    color: #fff;
+  }
+  .pill.solid:hover {
+    background: color-mix(in srgb, var(--color-accent) 86%, #000);
+  }
+  .pill.ghost {
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+  }
+  .pill.ghost:hover {
+    background: var(--color-accent-soft);
+  }
+  .search-hint {
+    margin: 22px 0 0;
+    font: 400 13px/1 var(--font-ui);
+    color: var(--color-ink-faint);
+  }
+
+  /* ---- tiles ---- */
+  .tile {
+    background: var(--color-bg-soft);
+    border-radius: 28px;
+    padding: 52px 48px 44px;
+    margin: 0 0 24px;
+  }
+  .tile-head h2,
+  .domains h2 {
+    font: 700 clamp(28px, 4.5vw, 44px) / 1.08 var(--font-display);
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
+    margin: 0 0 10px;
+  }
+  .tile-head p {
+    font: 400 clamp(15px, 2vw, 19px) / 1.5 var(--font-ui);
+    color: var(--color-ink-soft);
+    margin: 0 0 12px;
+  }
+  .tile-link {
+    font: 500 16px/1.2 var(--font-ui);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .tile-link:hover {
+    text-decoration: underline;
+  }
+
+  .strip-label {
+    font: 600 12px/1 var(--font-ui);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+    margin: 34px 0 12px;
+  }
+  .recent {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .recent a {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    background: var(--color-bg-card);
+    border-radius: 18px;
+    padding: 20px 22px;
+    text-decoration: none;
+    color: inherit;
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0.6, 0.25, 1),
+      box-shadow 0.25s ease;
+  }
+  .recent a:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--color-ink) 10%, transparent);
+  }
+  .chip {
+    align-self: flex-start;
+    font: 600 11px/1 var(--font-ui);
+    padding: 5px 10px;
+    border-radius: 980px;
+    color: var(--chip-fg);
+    background: var(--chip-bg);
+  }
+  .r-title {
+    font: 650 17px/1.35 var(--font-ui);
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+  }
+  .r-desc {
+    font: 400 13.5px/1.55 var(--font-ui);
+    color: var(--color-ink-soft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* papers tile — dark, like an apple.com feature tile */
+  .tile-dark {
+    background: #1d1d1f;
+  }
+  .tile-dark .tile-head h2 {
+    color: #f5f5f7;
+  }
+  .tile-dark .tile-head p {
+    color: #a1a1a6;
+  }
+  .covers {
+    list-style: none;
+    margin: 30px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .covers a {
+    display: block;
+    border-radius: 14px;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    background: #2c2c2e;
+    transition: transform 0.25s cubic-bezier(0.2, 0.6, 0.25, 1);
+  }
+  .covers a:hover {
+    transform: scale(1.03);
+  }
+  .covers img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+  }
+
+  /* ---- domain grid ---- */
+  .domains {
+    padding: 48px 0 8px;
+    text-align: center;
+  }
+  .domains h2 {
+    margin-bottom: 28px;
+  }
+  .domain-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    text-align: left;
+  }
+  .domain-grid a {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    background: var(--color-bg-soft);
+    border-radius: 22px;
+    padding: 28px 26px;
+    text-decoration: none;
+    color: inherit;
+    transition:
+      transform 0.25s cubic-bezier(0.2, 0.6, 0.25, 1),
+      box-shadow 0.25s ease;
+  }
+  .domain-grid a:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+  .d-label {
+    font: 700 21px/1.2 var(--font-ui);
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+  .d-desc {
+    font: 400 14px/1.55 var(--font-ui);
+    color: var(--color-ink-soft);
+  }
+  .d-count {
+    margin-top: auto;
+    font: 500 14px/1.2 var(--font-ui);
+    color: var(--color-accent);
+  }
+  .d-tile-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    background: var(--color-bg-soft);
+    border-radius: 22px;
+    padding: 28px 26px;
+    opacity: 0.72;
+  }
+  .d-count-empty {
+    color: var(--color-ink-faint);
+  }
+
+  /* ---- footer ---- */
+  .home-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--color-line);
+    margin-top: 44px;
+    padding-top: 22px;
+    font: 400 13px/1.5 var(--font-ui);
+    color: var(--color-ink-faint);
+  }
+  .home-foot a {
+    color: var(--color-ink-soft);
+    text-decoration: none;
+  }
+  .home-foot a:hover {
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 720px) {
+    .hero {
+      padding: 64px 0 48px;
     }
-    <span class="wb-legend-links">
-      <a href={links.all()}>{b.allNotes}</a>
-    </span>
-  </footer>
-</BrowseLayout>
+    .tile {
+      padding: 34px 24px 30px;
+      border-radius: 22px;
+    }
+  }
+</style>

@@ -34,8 +34,7 @@ jobs:
       - name: Mount public content
         run: |
           git clone --depth 1 https://github.com/YufengJin/yufeng-wiki.git src/content/notes
-          git clone --depth 1 --filter=blob:none --sparse https://github.com/YufengJin/paper-snapshots.git src/content/papers
-          git -C src/content/papers sparse-checkout set --no-cone '*/meta.json'
+          bash scripts/mount-papers.sh
           # vault 是私有仓库，公开构建刻意不 clone —— /vault/ 不存在于公开站
 
       - uses: pnpm/action-setup@v4

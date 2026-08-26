@@ -9,10 +9,10 @@ dist/
 # per-machine editing config (template: packages/astro-inkbrush/inkbrush.config.example.ts)
 inkbrush.config.ts
 
-# content mounts — separate repos cloned in place (see README)
+# content mounts — separate repos cloned/staged in place (see README)
 src/content/notes/
 src/content/vault/
-src/content/papers/
+public/papers/
 
 # misc
 .DS_Store

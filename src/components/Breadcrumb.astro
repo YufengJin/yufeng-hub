@@ -24,7 +24,7 @@
  */
 import LanguageMenu from './LanguageMenu.astro';
 import ThemeToggle from './ThemeToggle.astro';
-import { href, landingRoute, SITE_NAME, UI, type Alternate, type Locale } from '../lib/i18n';
+import { href, landingRoute, localePrefix, SITE_NAME, UI, type Alternate, type Locale } from '../lib/i18n';
 
 interface Crumb {
   label: string;
@@ -73,6 +73,9 @@ const home = landingRoute(locale);
     </ol>
   </nav>
   <span class="spacer" aria-hidden="true"></span>
+
+  <a class="nav-link" href={href(`${localePrefix(locale)}all/`)}>{t.navNotes}</a>
+  <a class="nav-link" href={href(`${localePrefix(locale)}papers/`)}>{t.navPapers}</a>
 
   <button class="search-btn" type="button" data-search-open title={t.searchButton} aria-label={t.searchButton}>
     <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
@@ -198,6 +201,17 @@ const home = landingRoute(locale);
     flex: 1;
   }
 
+  .nav-link {
+    color: var(--color-ink-soft);
+    text-decoration: none;
+    font: 500 12.5px/1 var(--font-ui);
+    padding: 6px 4px;
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover {
+    color: var(--color-accent);
+  }
+
   .search-btn {
     display: inline-grid;
     place-items: center;
@@ -229,6 +243,9 @@ const home = landingRoute(locale);
     .site-nav {
       padding: 0 10px;
       gap: 9px;
+    }
+    .nav-link {
+      display: none;
     }
     /* Narrow screens keep only "garden › current page": the full trail does
        not fit 430px and would be hard-clipped mid-word. Middle crumbs

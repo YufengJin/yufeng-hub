@@ -15,6 +15,9 @@ export const strings: UIStrings = {
 
   languages: 'Language',
 
+  navNotes: 'Notes',
+  navPapers: 'Papers',
+
   breadcrumb: 'Breadcrumb',
   contents: 'Contents',
   chapterNav: 'Chapter navigation',

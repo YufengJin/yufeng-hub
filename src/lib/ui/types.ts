@@ -36,6 +36,10 @@ export interface UIStrings {
   /** accessible name of the menu button and its popover nav */
   languages: string;
 
+  /* ---- global nav links (the bar's two section links) ---- */
+  navNotes: string;
+  navPapers: string;
+
   /* ---- chrome ---- */
   breadcrumb: string;
   contents: string;

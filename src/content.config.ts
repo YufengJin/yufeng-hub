@@ -92,15 +92,15 @@ const vault = defineCollection({
 });
 
 /**
- * The paper wall's data: every poster's meta.json from the paper-snapshots
- * repo, sparse-cloned into `src/content/papers` (gitignored) by CI and by
- * the ws02 mount script. Posters themselves stay on the published site —
- * the hub renders the index and links out.
+ * The paper wall: poster pages staged into `public/papers/<slug>/`
+ * (scripts/mount-papers.sh — self-contained static HTML + WebP, published
+ * verbatim), and this collection reads the same tree's meta.json for the
+ * index cards. One mount, both uses.
  */
-const papersMounted = existsSync(new URL('./content/papers', import.meta.url));
+const papersMounted = existsSync(new URL('../public/papers', import.meta.url));
 const papers = defineCollection({
   loader: papersMounted
-    ? glob({ pattern: ['*/meta.json', '!_src/**'], base: './src/content/papers' })
+    ? glob({ pattern: ['*/meta.json'], base: './public/papers' })
     : { name: 'papers-absent', load: async () => {} },
   schema: z.object({
     slug: z.string(),

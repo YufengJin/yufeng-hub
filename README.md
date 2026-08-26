@@ -17,7 +17,7 @@ clone 挂进 gitignored 目录——内容提交频繁，不该淹没壳仓库�
 | `packages/astro-inkbrush` | `ventusff/astro-inkbrush` | 公开 | 编辑机：块编辑、修订、AI、Obsidian inbox |
 | `src/content/notes` | `YufengJin/yufeng-wiki` | **公开** | 笔记正文（zh 默认 + en 镜像）+ `_meta` 注册表 |
 | `src/content/vault` | `YufengJin/yufeng-vault` | **私有** | 私密半区——公开 CI 不 clone，`/vault/` 整个命名空间在公开站上不存在 |
-| `src/content/papers` | `YufengJin/paper-snapshots`（sparse：只取 `*/meta.json`） | 公开 | 论文墙数据；海报页留在 [paper-snapshots 站](https://yufengjin.github.io/paper-snapshots/) |
+| `public/papers` | `YufengJin/paper-snapshots`（`scripts/mount-papers.sh` 装配海报目录） | 公开 | 论文墙：海报页整站托管在本站 `/papers/<slug>/`，同一棵树的 meta.json 喂索引卡 |
 
 ## 本地开发（ws02）
 
@@ -26,8 +26,7 @@ git clone --recurse-submodules git@github.com:YufengJin/yufeng-hub.git
 cd yufeng-hub
 git clone git@github.com:YufengJin/yufeng-wiki.git src/content/notes
 git clone git@github.com:YufengJin/yufeng-vault.git src/content/vault
-git clone --filter=blob:none --sparse git@github.com:YufengJin/paper-snapshots.git src/content/papers
-git -C src/content/papers sparse-checkout set --no-cone '*/meta.json'
+bash scripts/mount-papers.sh   # 有现成 checkout 时: PAPERS_SRC=/path/to/paper-snapshots
 pnpm install
 pnpm dev            # 纯阅读
 pnpm wiki           # WIKI=1 —— 编辑模式（悬停段落点 ✎）
