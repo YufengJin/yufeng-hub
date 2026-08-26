@@ -36,7 +36,7 @@ export const strings: UIStrings = {
   readingTime: (min) => `${min} min read`,
   footer: 'Yufeng Hub · a personal garden: notes, papers and a vault',
 
-  landingTitle: 'Yufeng Hub · a personal garden',
+  landingTitle: 'A personal garden',
   landingDesc: "Yufeng Jin's personal knowledge garden — notes, a paper wall and a private vault.",
 
   speakLabel: 'In plain words →',
