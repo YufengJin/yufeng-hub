@@ -1,0 +1,19 @@
+# build
+node_modules/
+dist/
+.astro/
+
+# CMS state (journal, comments, sessions) — machine-local, never content
+.wiki/
+
+# per-machine editing config (template: packages/astro-inkbrush/inkbrush.config.example.ts)
+inkbrush.config.ts
+
+# content mounts — separate repos cloned in place (see README)
+src/content/notes/
+src/content/vault/
+src/content/papers/
+
+# misc
+.DS_Store
+.env

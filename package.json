@@ -1,0 +1,33 @@
+{
+  "name": "yufeng-hub",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yufeng's personal hub — a digital garden of notes, papers and a private vault (Astro + astro-inkstone/inkbrush)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "postbuild": "node packages/astro-inkbrush/scripts/check-dist.mjs dist --base ${HUB_BASE:-/yufeng-hub}",
+    "preview": "astro preview",
+    "wiki": "WIKI=1 astro dev",
+    "check": "node packages/astro-inkbrush/scripts/check-content.mjs src/content/notes --math && node scripts/check-links.mjs"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^7.0.5",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/source-serif-4": "^5.3.0",
+    "@fontsource/noto-serif-sc": "^5.3.0",
+    "astro": "^7.1.6",
+    "astro-inkbrush": "workspace:*",
+    "astro-inkstone": "workspace:*",
+    "katex": "^0.17.0",
+    "mermaid": "^11.16.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3"
+  }
+}

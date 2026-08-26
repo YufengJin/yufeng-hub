@@ -1,0 +1,12 @@
+---
+/** /tag/<tag>/ — browse by tag (only non-empty values prerender); English. */
+import FacetPage from '../../components/browse/FacetPage.astro';
+import { getWikiUnits, tagIndex } from '../../lib/taxonomy';
+
+export async function getStaticPaths() {
+  const units = await getWikiUnits();
+  return [...tagIndex(units).entries()].map(([tag, notes]) => ({ params: { tag }, props: { tag, notes } }));
+}
+---
+
+<FacetPage locale="en" dim="tag" {...Astro.props} />

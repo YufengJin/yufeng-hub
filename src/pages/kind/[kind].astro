@@ -1,0 +1,12 @@
+---
+/** /kind/<id>/ — browse by kind (only non-empty values prerender); English. */
+import FacetPage from '../../components/browse/FacetPage.astro';
+import { getWikiUnits, groupByKind } from '../../lib/taxonomy';
+
+export async function getStaticPaths() {
+  const units = await getWikiUnits();
+  return groupByKind(units).map((g) => ({ params: { kind: g.def.id }, props: { def: g.def, notes: g.notes } }));
+}
+---
+
+<FacetPage locale="en" dim="kind" {...Astro.props} />

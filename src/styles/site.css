@@ -1,0 +1,275 @@
+/* ============================================================
+   site.css — this site's (the demo's) own styles: chrome only
+   (the two-column note shell, the sidebar and its table of contents,
+   the search palette, the mobile drawer).
+
+   Everything a reader sees inside the column comes from the package:
+   palette and fonts from tokens.css, the content layer from base.css, the
+   browse shelf from browse.css. A site customizes identity by overriding
+   tier one of the tokens (--p-*); this demo deliberately overrides none —
+   what you see is the package's bare face.
+   ============================================================ */
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource-variable/source-serif-4/opsz-italic.css';
+@import '@fontsource/noto-serif-sc/400.css';
+@import '@fontsource/noto-serif-sc/600.css';
+
+@import 'astro-inkstone/styles/tokens.css';
+@import 'astro-inkstone/styles/base.css';
+@import 'astro-inkstone/styles/browse.css';
+
+/* Generated content labels (--speak-label / --diff-label) follow the page
+   language through an inline style emitted by layouts/Base.astro from the
+   locale's UI strings — no per-language rules here. */
+
+/* Han glyph forms follow the page language: the shared stacks name SC faces
+   for Hanzi, which would set Japanese kanji and Korean hanja in Chinese
+   forms. Japanese and Korean pages put their own system faces ahead of the
+   SC ones; every other script resolves through the generic families. */
+html[lang='ja'] {
+  --font-display:
+    'Source Serif 4 Variable', 'Source Serif 4', 'Hiragino Mincho ProN', 'Yu Mincho',
+    'Noto Serif JP', 'Noto Serif CJK JP', Georgia, serif;
+  --font-body:
+    'Charter', 'Iowan Old Style', 'Source Serif 4 Variable', 'Source Serif 4',
+    'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Noto Serif CJK JP', ui-serif, Georgia,
+    serif;
+  --font-ui:
+    'Inter Variable', 'Inter', 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI',
+    'Meiryo', 'Noto Sans JP', 'Noto Sans CJK JP', ui-sans-serif, system-ui, sans-serif;
+}
+html[lang='ko'] {
+  --font-display:
+    'Source Serif 4 Variable', 'Source Serif 4', 'Apple Myungjo', 'Nanum Myeongjo',
+    'Noto Serif KR', 'Noto Serif CJK KR', Georgia, serif;
+  --font-body:
+    'Charter', 'Iowan Old Style', 'Source Serif 4 Variable', 'Source Serif 4', 'Apple Myungjo',
+    'Nanum Myeongjo', 'Noto Serif KR', 'Noto Serif CJK KR', ui-serif, Georgia, serif;
+  --font-ui:
+    'Inter Variable', 'Inter', 'Helvetica Neue', 'Apple SD Gothic Neo', 'Malgun Gothic',
+    'Noto Sans KR', 'Noto Sans CJK KR', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ============================================================ shell ==== */
+
+/* Skip link: the page's first tab stop — sr-only (base.css) while
+   unfocused, shown over the sticky nav bar while it holds keyboard focus.
+   The skin lives on the class; the focus state reverts every declaration
+   of the sr-only clipping and places the pill. */
+.skip-link {
+  z-index: 2000;
+  background: var(--color-bg-card);
+  color: var(--color-ink);
+  border-radius: 8px;
+  font: 600 13px/1 var(--font-ui);
+  text-decoration: none;
+}
+.skip-link:focus-visible {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  border: 2px solid var(--color-accent);
+  padding: 9px 14px;
+  outline: none;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  gap: 0;
+  max-width: var(--shell-w);
+  margin: 0 auto;
+  min-height: calc(100vh - var(--nav-h));
+  /* The sidebar is a sticky viewport-tall box, so its own background could
+     only ever be one screen tall; the column's tint and its right edge are
+     painted on the grid instead, so they run the full document height. */
+  background: linear-gradient(
+    to right,
+    var(--color-bg-soft) 0 calc(var(--sidebar-w) - 1px),
+    var(--color-line) calc(var(--sidebar-w) - 1px) var(--sidebar-w),
+    transparent var(--sidebar-w)
+  );
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--nav-h); /* below the nav bar, never under it */
+  align-self: start;
+  height: calc(100vh - var(--nav-h));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 28px 22px 40px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+main.note-main {
+  padding: 56px 64px 120px 56px;
+  min-width: 0;
+}
+.col {
+  max-width: var(--maxw);
+  margin: 0;
+}
+
+/* ---------------------------------------------------------- sidebar ---- */
+.sidebar .brand-link {
+  color: inherit;
+  border-bottom: none;
+  display: block;
+  text-decoration: none;
+}
+/* the brand is the note's own short title — chrome, not the page's h1 */
+.sidebar .brand {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.sidebar .subtitle {
+  color: var(--color-ink-faint);
+  font-size: 12px;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+/* ---- table of contents ---- */
+.toc {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+}
+.toc > li {
+  margin: 0;
+}
+.toc a {
+  display: block;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: var(--color-ink-soft);
+  text-decoration: none;
+  border-bottom: none;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+.toc a:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+.toc a.active {
+  color: var(--color-accent-text);
+  font-weight: 600;
+}
+/* part labels ("PART I · Foundations") */
+.toc .group {
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--color-ink-faint);
+  padding: 14px 8px 4px;
+  font-weight: 600;
+}
+.toc .nested {
+  padding-left: 12px;
+  font-size: 13px;
+}
+/* hub rails: the current page row + its own expanded section list */
+.toc .here {
+  display: block;
+  padding: 5px 8px;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.toc ul.sub {
+  list-style: none;
+  margin: 0 0 4px;
+  padding-left: 14px;
+  font-size: 13px;
+}
+.toc ul.sub .idx {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent-text);
+  margin-right: 6px;
+}
+.toc .num-col {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent-text);
+  margin-right: 6px;
+}
+.toc .katex {
+  font-size: 1em;
+}
+
+/* =================================================== search palette ==== */
+
+
+/* ====================================================== responsive ===== */
+
+.nav-toggle {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+    /* no sidebar column, so no tinted band either */
+    background: none;
+  }
+  .sidebar {
+    display: none;
+    position: static;
+    height: auto;
+    border-bottom: 1px solid var(--color-line);
+    background: var(--color-bg-soft);
+    padding: 18px 22px;
+  }
+  body.nav-open .sidebar {
+    display: block;
+  }
+  .nav-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+  }
+  .nav-toggle:hover {
+    border-color: currentColor;
+  }
+  main.note-main {
+    padding: 32px 22px 80px;
+  }
+  .pagination {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ======================================================== inkbrush ===== */
+/* The CMS docks its chips into .site-nav slots; give them the bar's metrics
+   so they sit on the baseline instead of floating over the page. */
+.site-nav .wiki-chip {
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+
+@media print {
+  .nav-toggle {
+    display: none;
+  }
+}

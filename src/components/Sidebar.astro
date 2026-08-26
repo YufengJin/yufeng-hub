@@ -1,0 +1,156 @@
+---
+/**
+ * Sidebar — brand + subtitle + the full-document table of contents,
+ * generated at build time from the page's own headings (never hardcoded).
+ *
+ * Two shapes:
+ *  - single-page note: [unnumbered intro row] + PART group labels + chapter
+ *    rows (h3 rows indented via .nested when tocDepth = 3);
+ *  - hub chapter page: hub row + group labels + sibling chapter rows; the
+ *    CURRENT page renders as .here with an expanded <ul class="sub"> of its
+ *    own section anchors.
+ *
+ * The slot takes whatever the site hangs under the ToC — here, the note's
+ * local link graph.
+ */
+import SidebarMemory from 'astro-inkstone/components/SidebarMemory.astro';
+import { renderTocLabel } from 'astro-inkstone/lib/toc';
+import type { TocData } from 'astro-inkstone/lib/toc-types';
+
+export interface HubRow {
+  href: string;
+  /** rail row label, e.g. "II. Wiki & browse" */
+  label: string;
+  here: boolean;
+}
+export interface HubGroup {
+  label: string;
+  rows: HubRow[];
+}
+export interface HubNav {
+  hubHref: string;
+  hubLabel: string;
+  hubHere: boolean;
+  groups: HubGroup[];
+}
+
+interface Props {
+  brand: string;
+  brandHref: string;
+  subtitle?: string | undefined;
+  toc: TocData;
+  tocDepth?: 2 | 3;
+  hub?: HubNav | undefined;
+  /** accessible name of the contents landmark, in the page's language */
+  labels: { contents: string };
+}
+const { brand, brandHref, subtitle, toc, tocDepth = 2, hub, labels } = Astro.props;
+
+const entries = toc.items.filter((i) => i.kind === 'entry');
+const subEntries = entries.filter((e) => e.depth === 2);
+---
+
+<aside class="sidebar" id="site-sidebar">
+  <a class="brand-link" href={brandHref}>
+    {/* the brand is chrome, not the document's title: the ONE h1 on every
+        page is the article heading, so this stays a plain div */}
+    <div class="brand">{brand}</div>
+    {
+      subtitle && (
+        <div class="subtitle">
+          {subtitle.split('\n').map((line, i) => (
+            <>
+              {i > 0 && <br />}
+              {line}
+            </>
+          ))}
+        </div>
+      )
+    }
+  </a>
+  <nav aria-label={labels.contents}>
+    {
+      hub ? (
+        <ul class="toc">
+          <li>
+            {hub.hubHere ? (
+              <span class="here" aria-current="page">
+                {hub.hubLabel}
+              </span>
+            ) : (
+              <a href={hub.hubHref}>{hub.hubLabel}</a>
+            )}
+            {hub.hubHere && subEntries.length > 0 && (
+              <ul class="sub">
+                {subEntries.map((e) => (
+                  <li>
+                    <a href={`#${e.id}`}>
+                      {e.num && <span class="idx">{e.num}</span>}
+                      <Fragment set:html={renderTocLabel(e.label)} />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          {hub.groups.map((group) => (
+            <>
+              <li class="group">{group.label}</li>
+              {group.rows.map((row) =>
+                row.here ? (
+                  <li>
+                    <span class="here" aria-current="page">
+                      {row.label}
+                    </span>
+                    {subEntries.length > 0 && (
+                      <ul class="sub">
+                        {subEntries.map((e) => (
+                          <li>
+                            <a href={`#${e.id}`}>
+                              {e.num && <span class="idx">{e.num}</span>}
+                              <Fragment set:html={renderTocLabel(e.label)} />
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ) : (
+                  <li>
+                    <a href={row.href}>{row.label}</a>
+                  </li>
+                ),
+              )}
+            </>
+          ))}
+        </ul>
+      ) : (
+        <ul class="toc">
+          {toc.items.map((item) =>
+            item.kind === 'group' ? (
+              <li class="group">
+                {item.num}
+                {item.label ? ` · ${item.label}` : ''}
+              </li>
+            ) : item.depth === 2 ? (
+              <li>
+                <a href={`#${item.id}`}>
+                  {item.num && <span class="num-col">{item.num}</span>}
+                  <Fragment set:html={renderTocLabel(item.label)} />
+                </a>
+              </li>
+            ) : tocDepth === 3 ? (
+              <li class="nested">
+                <a href={`#${item.id}`}>
+                  <Fragment set:html={renderTocLabel(item.label)} />
+                </a>
+              </li>
+            ) : null,
+          )}
+        </ul>
+      )
+    }
+  </nav>
+  <slot />
+  <SidebarMemory />
+</aside>

@@ -1,0 +1,289 @@
+---
+/**
+ * Page shell: nav bar, search palette, lightbox and the site-wide scripts.
+ * NoteLayout and BrowseLayout wrap their own column structure around this.
+ * Pure static — no ClientRouter; page transitions are native cross-document
+ * view transitions (base.css).
+ *
+ * Parts of the DOM here are astro-inkbrush's contract, not a styling choice:
+ *
+ *   .site-nav + the two        see components/Breadcrumb.astro
+ *   [data-inkbrush-slot]
+ *   main.note-main > .col      NoteLayout — the comment section mounts there
+ *
+ * Everything else is the demo site's own chrome — its styles, i18n table,
+ * search palette, theme controls and demo-module loader — written against
+ * the package's public exports.
+ */
+import 'katex/dist/katex.min.css';
+import '../styles/site.css';
+import Breadcrumb from '../components/Breadcrumb.astro';
+import SearchPalette from 'astro-inkstone/components/SearchPalette.astro';
+import { KINDS } from '../content/notes/_meta/taxonomy';
+import ThemeInit from '../components/ThemeInit.astro';
+import { DEFAULT_LOCALE, href, localeDef, UI, type Alternate, type Locale } from '../lib/i18n';
+
+interface Crumb {
+  label: string;
+  route?: string | undefined;
+}
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+  /** UI-chrome language (note pages follow the note's locale) */
+  locale?: Locale;
+  crumbs?: Crumb[];
+  /** this page's routes in the locales it exists in — the language menu's
+   *  rows and the head's hreflang alternates */
+  alternates?: Alternate[];
+  /** body class — browse pages pass `wb-root` to enter the browse context */
+  bodyClass?: string | undefined;
+  /** the page has a sidebar drawer for the nav bar's menu button to open */
+  hasSidebar?: boolean;
+  /**
+   * Collection entry id, when this page is editable through the CMS. The
+   * <meta name="inkbrush-note"> tags are editing metadata — emitted in WIKI
+   * mode only, so the published bundle never carries them.
+   */
+  noteId?: string | undefined;
+}
+const {
+  title,
+  description,
+  locale = DEFAULT_LOCALE,
+  crumbs = [],
+  alternates = [],
+  bodyClass,
+  hasSidebar = false,
+  noteId,
+} = Astro.props;
+const t = UI[locale];
+const htmlLang = localeDef(locale).htmlLang;
+
+// hreflang alternates: absolute URLs of this page's real twins (x-default =
+// the default locale's edition, when it exists)
+const absolute = (route: string): string => new URL(href(route), Astro.site).href;
+const defaultTwin = alternates.find((a) => a.code === DEFAULT_LOCALE);
+
+// generated content-layer labels ("in plain words →", "vs prior →") follow
+// the page language through two custom properties read by base.css
+const cssStr = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+const labelStyle = `:root{--speak-label:${cssStr(t.speakLabel)};--diff-label:${cssStr(t.diffLabel)}}`;
+
+// The CMS resolves a note's URL from its id with this template; the id↔route
+// identity (route = `${base}${id}/`) is what makes the language-switch jump
+// work inside inkbrush's own locale registry.
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+const noteUrlTemplate = `${base}{id}/`;
+const wikiMode = Boolean(import.meta.env.WIKI ?? process.env.WIKI);
+
+// PLAYGROUND=1 astro build → the browser-local playground; the client mount
+// is injected by the astro.config integration (a conditional import here
+// still lands in the default bundle — the bundler resolves it statically).
+// This flag only gates the editing metadata below.
+const playground = Boolean(import.meta.env.PLAYGROUND ?? process.env.PLAYGROUND);
+
+---
+
+<!doctype html>
+<html lang={htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    {description && <meta name="description" content={description} />}
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M10 2.2 17.8 10 10 17.8 2.2 10Z' fill='none' stroke='%237d3a3a' stroke-width='1.6'/><path d='M10 6.4 13.6 10 10 13.6 6.4 10Z' fill='%237d3a3a'/></svg>"
+    />
+    <title>{title} · Yufeng Hub</title>
+    {alternates.map((a) => (
+      <link rel="alternate" hreflang={localeDef(a.code).htmlLang} href={absolute(a.route)} />
+    ))}
+    {defaultTwin && <link rel="alternate" hreflang="x-default" href={absolute(defaultTwin.route)} />}
+    <style set:html={labelStyle}></style>
+    {(wikiMode || playground) && noteId && <meta name="inkbrush-note" content={noteId} />}
+    {(wikiMode || playground) && noteId && <meta name="inkbrush-note-url" content={noteUrlTemplate} />}
+    <ThemeInit />
+  </head>
+  <body class={bodyClass}>
+    {/* first tab stop on every page; #main is the layouts' main element.
+        sr-only while unfocused (the focused state is styled in site.css) */}
+    <a class="sr-only skip-link" href="#main">{t.skip}</a>
+    <Breadcrumb locale={locale} crumbs={crumbs} alternates={alternates} hasSidebar={hasSidebar} />
+    <slot />
+
+    <dialog class="lightbox" aria-label={t.lightbox}>
+      <button class="lb-close" type="button" aria-label={t.close}>
+        <span aria-hidden="true">×</span>
+      </button>
+      <img alt="" />
+      <div class="cap"></div>
+    </dialog>
+    <SearchPalette
+      indexUrl={href('search-index.json')}
+      locale={locale}
+      scopes={[
+        { id: 'all', label: t.searchScopeAll },
+        ...KINDS.map((k) => ({ id: k.id, label: t.kinds[k.id].label, crumb: t.kinds[k.id].label })),
+      ]}
+      labels={{
+        dialog: t.searchDialog,
+        input: t.searchInput,
+        results: t.searchResults,
+        placeholder: t.searchPlaceholder,
+        hint: t.searchHint,
+        empty: t.searchEmpty,
+        unavailable: t.searchUnavailable,
+        unit: t.searchUnit,
+      }}
+    />
+    {/* polite live region: copy-button outcomes for assistive technology */}
+    <div class="sr-only" role="status" data-copy-status data-done={t.copied} data-fail={t.copyFailed}></div>
+
+    <script>
+      // copy-tex: copying a formula yields its TeX source
+      import 'katex/dist/contrib/copy-tex.mjs';
+
+      // ---- sidebar scroll-spy ----------------------------------------------
+      // The section under the reading line is the highlighted ToC row — the
+      // .active class for the visual, aria-current="location" for assistive
+      // technology — and that row is kept in view inside the (independently
+      // scrolling) sidebar.
+      const sidebar = document.querySelector<HTMLElement>('.sidebar');
+      const links = [...document.querySelectorAll<HTMLAnchorElement>('.toc a[href^="#"]')];
+      // href attribute, not `.hash`: `.hash` comes back percent-encoded, and
+      // heading ids may be Chinese — getElementById would find nothing
+      const byId = new Map(links.map((a) => [(a.getAttribute('href') ?? '').slice(1), a]));
+      if (byId.size > 0) {
+        let activeLink: HTMLAnchorElement | null = null;
+        const setActive = (link: HTMLAnchorElement | undefined): void => {
+          if (!link || link === activeLink) return;
+          activeLink?.classList.remove('active');
+          activeLink?.removeAttribute('aria-current');
+          link.classList.add('active');
+          link.setAttribute('aria-current', 'location');
+          activeLink = link;
+          if (!sidebar) return;
+          const lr = link.getBoundingClientRect();
+          const sr = sidebar.getBoundingClientRect();
+          if (lr.top < sr.top + 24 || lr.bottom > sr.bottom - 24) {
+            sidebar.scrollTop += lr.top - sr.top - sidebar.clientHeight * 0.4;
+          }
+        };
+        const targets = [...byId.keys()]
+          .map((id) => document.getElementById(id))
+          .filter((el): el is HTMLElement => el !== null);
+        const visible = new Set<string>();
+        const io = new IntersectionObserver(
+          (recs) => {
+            for (const rec of recs) {
+              if (rec.isIntersecting) visible.add(rec.target.id);
+              else visible.delete(rec.target.id);
+            }
+            const first = targets.find((t) => visible.has(t.id));
+            if (first) setActive(byId.get(first.id));
+          },
+          { rootMargin: '-10% 0px -70% 0px' },
+        );
+        for (const t of targets) io.observe(t);
+      }
+
+      // ---- figure lightbox ------------------------------------------------
+      const box = document.querySelector<HTMLDialogElement>('dialog.lightbox');
+      if (box) {
+        const img = box.querySelector('img') as HTMLImageElement;
+        const cap = box.querySelector('.cap') as HTMLElement;
+        for (const btn of document.querySelectorAll<HTMLButtonElement>('.figure button.zoom')) {
+          btn.addEventListener('click', () => {
+            img.src = btn.dataset['full'] ?? '';
+            img.alt = btn.dataset['alt'] ?? '';
+            cap.textContent = btn.closest('figure')?.querySelector('figcaption')?.textContent ?? '';
+            box.showModal();
+          });
+        }
+        // three ways out: the close control, Esc, and a click on the backdrop
+        // (the dialog element itself — a click on the picture keeps it open)
+        box.querySelector<HTMLButtonElement>('.lb-close')?.addEventListener('click', () => box.close());
+        box.addEventListener('click', (e) => {
+          if (e.target === box) box.close();
+        });
+      }
+
+      // ---- code frame: copy button (markup from the package's code-frame
+      // transformer; the click handler is the site's — event delegation).
+      // The outcome reaches everyone: the label swap for sighted readers,
+      // the polite status line for assistive technology — failure included. --
+      const copyStatus = document.querySelector<HTMLElement>('[data-copy-status]');
+      const announce = (msg: string): void => {
+        if (!copyStatus) return;
+        // clear first, so an identical message is re-announced
+        copyStatus.textContent = '';
+        setTimeout(() => {
+          copyStatus.textContent = msg;
+        }, 30);
+      };
+      document.addEventListener('click', (ev) => {
+        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.code-copy');
+        if (!btn) return;
+        const pre = btn.closest('.code-frame')?.querySelector('pre');
+        if (!pre) return;
+        const copyFailed = (): void => announce(copyStatus?.dataset['fail'] ?? '');
+        if (!navigator.clipboard) {
+          copyFailed(); // insecure context: no clipboard API at all
+          return;
+        }
+        navigator.clipboard.writeText(pre.innerText).then(() => {
+          btn.classList.add('is-done');
+          announce(copyStatus?.dataset['done'] ?? '');
+          setTimeout(() => btn.classList.remove('is-done'), 1600);
+        }, copyFailed);
+      });
+
+      // ---- mermaid: only pages that carry a .mermaid block pay for the
+      // chunk (the package's rehype-mermaid-client leaves `pre.mermaid`
+      // placeholders); re-rendered when the theme flips ----------------------
+      {
+        const blocks = [...document.querySelectorAll<HTMLElement>('pre.mermaid')];
+        if (blocks.length > 0) {
+          const sources = blocks.map((b) => b.textContent ?? '');
+          const renderAll = async (): Promise<void> => {
+            const { default: mermaid } = await import('mermaid');
+            // diagrams are inked from the live tokens, so they sit on either
+            // ground like any other figure
+            const token = (name: string): string =>
+              getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            blocks.forEach((b, i) => {
+              b.textContent = sources[i] ?? '';
+              b.removeAttribute('data-processed');
+            });
+            mermaid.initialize({
+              startOnLoad: false,
+              theme: 'base',
+              themeVariables: {
+                background: token('--color-bg-card'),
+                primaryColor: token('--color-bg-soft'),
+                primaryTextColor: token('--color-ink'),
+                primaryBorderColor: token('--color-ink-faint'),
+                secondaryColor: token('--color-accent-soft'),
+                secondaryTextColor: token('--color-ink'),
+                tertiaryColor: token('--color-bg'),
+                lineColor: token('--color-ink-soft'),
+                textColor: token('--color-ink'),
+                edgeLabelBackground: token('--color-bg-card'),
+                fontFamily: token('--font-ui'),
+              },
+            });
+            await mermaid.run({ nodes: blocks });
+          };
+          void renderAll();
+          window.addEventListener('themechange', () => void renderAll());
+        }
+      }
+    </script>
+
+  </body>
+</html>

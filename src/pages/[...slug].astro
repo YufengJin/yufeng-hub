@@ -1,0 +1,224 @@
+---
+/**
+ * Catch-all route for every note.
+ *
+ *   notes/<topic>/index.mdx          → /<topic>/
+ *   notes/<hub>/<page>/index.mdx     → /<hub>/<page>/
+ *   notes/<locale>/<topic>/index.mdx → /<locale>/<topic>/
+ *
+ * Mirrors are materialized only where a file exists — no fallback tree.
+ * Everything the sidebar shows — the ToC, the hub rail, backlinks and the
+ * local link graph — is assembled here at build time from the collection;
+ * frontmatter contributes the hub's `nav` order and display strings (title,
+ * brand, subtitle, navLabel), nothing more.
+ */
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+
+import { roman } from 'astro-inkstone/lib/rehype-chapters';
+import { getToc } from 'astro-inkstone/lib/toc';
+import NoteLayout, { type HubPageChrome } from '../layouts/NoteLayout.astro';
+import type { HubNav, HubRow } from '../components/Sidebar.astro';
+import { backlinks as backlinkBuilder, toDocs } from '../lib/backlinks';
+import { stripOf } from '../lib/display';
+import { baseIdOf, href, idIn, localeOfId, localePrefix, LOCALES, routeOfId, UI, type Alternate, type Locale } from '../lib/i18n';
+import { resolveTaxonomy } from '../lib/taxonomy';
+import { LOCALE_CODES } from '../content/notes/_meta/locales';
+import { RESERVED_SLUGS } from '../content/notes/_meta/taxonomy';
+
+export async function getStaticPaths() {
+  const notes = await getCollection('notes');
+  // The id IS the route, so a note must not open a namespace the browse
+  // routes or the locale trees own. Mirrors are checked on the canonical id
+  // behind their locale prefix; a bare locale id would claim a mirror root.
+  const reserved = new Set<string>([...RESERVED_SLUGS, ...LOCALE_CODES]);
+  for (const entry of notes) {
+    const canonical = baseIdOf(entry.id);
+    const first = canonical === '' ? entry.id : (canonical.split('/')[0] ?? canonical);
+    if (reserved.has(first)) {
+      throw new Error(
+        `notes/${entry.id}: its leading path segment "${first}" is reserved (${
+          (LOCALE_CODES as readonly string[]).includes(first)
+            ? `the ${first} locale namespace`
+            : `the /${first}/ browse route`
+        }) — rename the note`,
+      );
+    }
+  }
+  return notes.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<'notes'>;
+}
+
+const { entry } = Astro.props;
+const notes = await getCollection('notes');
+const byId = new Map(notes.map((n) => [n.id, n]));
+
+const { Content, remarkPluginFrontmatter } = await render(entry);
+const toc = getToc(remarkPluginFrontmatter ?? {});
+const readingMinutes = remarkPluginFrontmatter?.['readingMinutes'];
+
+/* ---------- identity ---------- */
+const locale: Locale = localeOfId(entry.id);
+const t = UI[locale];
+const baseId = baseIdOf(entry.id);
+const segments = baseId.split('/');
+const topic = segments[0] ?? baseId;
+const subPath = segments.slice(1).join('/');
+const langPrefix = localePrefix(locale);
+/** route of a full entry id (locale prefix included) */
+const routeTo = (id: string): string => href(routeOfId(id));
+
+/* ---------- hub rail (multi-chapter collection notes) ---------- */
+const hubEntry =
+  subPath !== ''
+    ? byId.get(`${langPrefix}${topic}`)
+    : entry.data.nav
+      ? entry
+      : undefined;
+
+let hub: HubNav | undefined;
+let hubPage: HubPageChrome | undefined;
+if (hubEntry?.data.nav) {
+  const isHubIndex = subPath === '';
+  interface FlatRow {
+    id: string;
+    href: string;
+    rowLabel: string;
+    longLabel: string;
+  }
+  const flat: FlatRow[] = [];
+  let position = 0;
+  const groups = hubEntry.data.nav.map((group) => ({
+    label: group.group,
+    rows: group.pages.map((page): HubRow => {
+      position += 1;
+      const childId = `${langPrefix}${topic}/${page}`;
+      const child = byId.get(childId);
+      if (!child) {
+        // a nav entry with no file is a build error — the rail must never
+        // point into a 404
+        throw new Error(`[hub ${topic}] nav references missing page: ${childId}`);
+      }
+      // the chapter's own number and the rail's position are one fact,
+      // declared twice; the build refuses to let them drift
+      if (child.data.part !== position) {
+        throw new Error(
+          `[hub ${topic}] ${childId}: frontmatter part must be ${position} (its position in the hub's nav), found ${child.data.part ?? 'none'}`,
+        );
+      }
+      const label = child.data.navLabel ?? child.data.title;
+      const rowLabel = `${roman(position)}. ${label}`;
+      const longLabel = `${t.partLabel(roman(position))} · ${label}`;
+      flat.push({ id: child.id, href: routeTo(childId), rowLabel, longLabel });
+      return {
+        href: routeTo(childId),
+        label: rowLabel,
+        here: !isHubIndex && child.id === entry.id,
+      };
+    }),
+  }));
+  hub = {
+    hubHref: routeTo(hubEntry.id),
+    hubLabel: hubEntry.data.navLabel ?? t.overview,
+    hubHere: isHubIndex,
+    groups,
+  };
+  if (!isHubIndex) {
+    const idx = flat.findIndex((r) => r.id === entry.id);
+    if (idx >= 0) {
+      const prev = flat[idx - 1];
+      const next = flat[idx + 1];
+      hubPage = {
+        crumbLabel: flat[idx]!.longLabel,
+        hubHref: hub.hubHref,
+        prev: prev ? { href: prev.href, label: prev.longLabel } : undefined,
+        next: next ? { href: next.href, label: next.longLabel } : undefined,
+      };
+    }
+  }
+} else if (subPath !== '') {
+  // A mirror chapter whose hub has no mirror: the canonical hub still knows
+  // the chapter's position, so the hub chrome (the PartHero kicker and the
+  // in-column crumb, pointing at the canonical hub — the only hub route
+  // that exists) is derived from it. The sibling rail and prev/next stay
+  // absent: their rows would cross into the other language.
+  const canonicalHub = byId.get(topic);
+  if (canonicalHub?.data.nav) {
+    const pages = canonicalHub.data.nav.flatMap((group) => group.pages);
+    const position = pages.indexOf(subPath) + 1;
+    if (position > 0) {
+      const label = entry.data.navLabel ?? entry.data.title;
+      hubPage = {
+        crumbLabel: `${t.partLabel(roman(position))} · ${label}`,
+        hubHref: routeTo(topic),
+      };
+    }
+  }
+}
+
+/* ---------- the language menu's rows: locales this note exists in ---------- */
+const alternates: Alternate[] = LOCALES.flatMap((l) => {
+  const id = idIn(l.code, baseId);
+  return byId.has(id) ? [{ code: l.code, route: routeOfId(id) }] : [];
+});
+
+/* ---------- breadcrumb ---------- */
+// A mirror chapter whose hub has no mirror links its crumb to the primary
+// hub — the only route that exists.
+const topicEntry = hubEntry ?? byId.get(topic);
+const crumbs =
+  subPath === ''
+    ? [{ label: entry.data.title }]
+    : [
+        {
+          label: topicEntry?.data.title ?? topic,
+          route: hubEntry ? `${langPrefix}${routeOfId(topic)}` : routeOfId(topic),
+        },
+        { label: entry.data.title },
+      ];
+
+/* ---------- taxonomy strip (chapters and mirrors inherit at build time) --- */
+const taxonomy = stripOf(
+  resolveTaxonomy(entry, byId),
+  locale,
+  typeof readingMinutes === 'number' ? readingMinutes : undefined,
+);
+
+/* ---------- backlinks + the sidebar's local graph (the index is memoized
+   per collection array — see src/lib/backlinks.ts) ---------- */
+const index = backlinkBuilder.build(toDocs(notes));
+const backlinks = index.inbound.get(entry.id) ?? [];
+const graph = index.localGraph(entry.id, (id) => byId.get(id)?.data.title ?? id);
+
+/* ---------- sidebar brand: the hub's for chapters, the note's own otherwise ---------- */
+const brandEntry = hubEntry ?? entry;
+const brand = brandEntry.data.brand ?? brandEntry.data.title;
+const brandHref = hub ? hub.hubHref : routeTo(entry.id);
+---
+
+<NoteLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  locale={locale}
+  crumbs={crumbs}
+  brand={brand}
+  brandHref={brandHref}
+  subtitle={brandEntry.data.subtitle}
+  noteId={entry.id}
+  alternates={alternates}
+  toc={toc}
+  tocDepth={entry.data.tocDepth}
+  taxonomy={taxonomy}
+  hub={hub}
+  hubPage={hubPage}
+  backlinks={backlinks}
+  graph={graph}
+>
+  <Content partLabel={hubPage?.crumbLabel} toc={toc} />
+</NoteLayout>

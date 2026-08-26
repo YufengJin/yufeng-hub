@@ -1,0 +1,12 @@
+---
+/** /domain/<id>/ — browse by domain (only non-empty values prerender); English. */
+import FacetPage from '../../components/browse/FacetPage.astro';
+import { getWikiUnits, groupByDomain } from '../../lib/taxonomy';
+
+export async function getStaticPaths() {
+  const units = await getWikiUnits();
+  return groupByDomain(units).map((g) => ({ params: { domain: g.def.id }, props: { def: g.def, notes: g.notes } }));
+}
+---
+
+<FacetPage locale="en" dim="domain" {...Astro.props} />

@@ -1,0 +1,73 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # yufeng-wiki 内容更新时由该仓库的 workflow 触发（repository_dispatch），
+  # 也可手动触发
+  repository_dispatch:
+    types: [content-updated]
+  # 内容仓（wiki/papers）没有跨仓库触发的 token，先用每日定时兜底：
+  # 内容推送后公开站最迟次日跟上；着急就 workflow_dispatch 手动触发
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout shell (with engines)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Mount public content
+        run: |
+          git clone --depth 1 https://github.com/YufengJin/yufeng-wiki.git src/content/notes
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/YufengJin/paper-snapshots.git src/content/papers
+          git -C src/content/papers sparse-checkout set --no-cone '*/meta.json'
+          # vault 是私有仓库，公开构建刻意不 clone —— /vault/ 不存在于公开站
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          HUB_SITE: https://yufengjin.github.io
+          HUB_BASE: /yufeng-hub
+
+      - name: Content checks (dialect + wikilinks)
+        run: pnpm check
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

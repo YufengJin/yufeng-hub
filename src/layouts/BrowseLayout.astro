@@ -1,0 +1,31 @@
+---
+/**
+ * Browse page: Base shell in the browse context (`body.wb-root`, styled by
+ * the package's browse.css) + one wide column. No sidebar — browse pages are
+ * their own navigation.
+ */
+import Base from './Base.astro';
+import { DEFAULT_LOCALE, type Alternate, type Locale } from '../lib/i18n';
+
+interface Crumb {
+  label: string;
+  route?: string | undefined;
+}
+
+interface Props {
+  title: string;
+  description?: string | undefined;
+  locale?: Locale;
+  crumbs?: Crumb[];
+  /** this page's routes in every locale (browse trees are complete by
+   *  construction) */
+  alternates: Alternate[];
+}
+const { title, description, locale = DEFAULT_LOCALE, crumbs = [], alternates } = Astro.props;
+---
+
+<Base title={title} description={description} locale={locale} crumbs={crumbs} alternates={alternates} bodyClass="wb-root">
+  <main id="main">
+    <slot />
+  </main>
+</Base>
