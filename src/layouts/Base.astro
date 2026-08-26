@@ -129,6 +129,7 @@ const playground = Boolean(import.meta.env.PLAYGROUND ?? process.env.PLAYGROUND)
       scopes={[
         { id: 'all', label: t.searchScopeAll },
         ...KINDS.map((k) => ({ id: k.id, label: t.kinds[k.id].label, crumb: t.kinds[k.id].label })),
+        { id: 'papers', label: t.navPapers, crumb: t.navPapers },
       ]}
       labels={{
         dialog: t.searchDialog,
