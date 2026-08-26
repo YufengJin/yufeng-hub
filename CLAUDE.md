@@ -11,7 +11,10 @@
 ├── hub-site/                  # 本仓库（壳 + skills + 运营手册）
 │   ├── src/content/notes/     # ← YufengJin/yufeng-wiki（公开笔记，独立 git）
 │   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git）
-│   └── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers）
+│   ├── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers）
+│   └── public/vault-static/   # ← mount-vault-static.sh 装配的私密静态站（勿手改，
+│                              #    源在 vault 仓库各条目的 site/ 目录；公开 CI 无 vault
+│                              #    挂载自动为空，隐私由构建方式保证）
 ├── pages/yufeng-papers/       # 论文墙模块仓库（海报流水线 + _src 工作目录 + 项目 skill）
 ├── yufeng-obsidian/           # 私人 Obsidian vault（独立 git）
 ├── inbox/                     # 统一收件箱：各机器投递的草稿（见 inbox-triage skill）
