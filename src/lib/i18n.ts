@@ -93,6 +93,5 @@ export function href(route: string): string {
   return b + route.replace(/^\//, '');
 }
 
-/** this hub's own repositories and sibling sites */
+/** this hub's shell repository */
 export const GITHUB_URL = 'https://github.com/YufengJin/yufeng-hub';
-export const PAPERS_SITE = 'https://yufengjin.github.io/paper-snapshots';

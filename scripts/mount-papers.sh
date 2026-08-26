@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage poster pages from the paper-snapshots repo into public/papers/.
+# Stage poster pages from the yufeng-papers repo (formerly paper-snapshots) into public/papers/.
 #
 # Poster dir = a top-level dir carrying meta.json (index.html + img/ + meta).
 # The pages are self-contained (relative img/ only; "../" back-link lands on
@@ -13,8 +13,8 @@ cd "$(dirname "$0")/.."
 
 SRC="${PAPERS_SRC:-}"
 if [ -z "$SRC" ]; then
-  SRC="$(mktemp -d)/paper-snapshots"
-  git clone --depth 1 https://github.com/YufengJin/paper-snapshots.git "$SRC"
+  SRC="$(mktemp -d)/yufeng-papers"
+  git clone --depth 1 https://github.com/YufengJin/yufeng-papers.git "$SRC"
 fi
 
 mkdir -p public/papers
