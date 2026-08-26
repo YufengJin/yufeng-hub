@@ -60,6 +60,8 @@ const notes = defineCollection({
     tocDepth: z.union([z.literal(2), z.literal(3)]).default(2),
     /** `false` switches chapter numbering off (a hub's overview page) */
     chapters: z.boolean().default(true),
+    /** interactive demo scripts this note mounts (files in public/demos/) */
+    demos: z.array(z.string().regex(/^[a-z0-9-]+$/)).optional(),
   }),
 });
 

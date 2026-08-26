@@ -83,9 +83,8 @@ export interface UIStrings {
     /** between the lede and the section links, and the sentence's full stop */
     sep: string;
     stop: string;
-    /** hero section links: the paper wall and the legacy notes site */
+    /** hero section link: the paper wall */
     papersLink: string;
-    legacyLink: string;
     recent: string;
     recentSub: string;
     shelfCount: (n: number) => string;

@@ -221,4 +221,10 @@ const brandHref = hub ? hub.hubHref : routeTo(entry.id);
   graph={graph}
 >
   <Content partLabel={hubPage?.crumbLabel} toc={toc} />
+  {
+    /* interactive demos ported from the legacy notes site: plain scripts in
+       public/demos/, mounting by element id with existence guards, so a page
+       without its canvases loads nothing extra and runs nothing */
+    (entry.data.demos ?? []).map((name) => <script is:inline defer src={href(`demos/${name}.js`)} />)
+  }
 </NoteLayout>

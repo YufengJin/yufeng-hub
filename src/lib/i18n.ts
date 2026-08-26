@@ -96,4 +96,3 @@ export function href(route: string): string {
 /** this hub's own repositories and sibling sites */
 export const GITHUB_URL = 'https://github.com/YufengJin/yufeng-hub';
 export const PAPERS_SITE = 'https://yufengjin.github.io/paper-snapshots';
-export const LEGACY_NOTES_SITE = 'https://yufengjin.github.io/learning-notes';

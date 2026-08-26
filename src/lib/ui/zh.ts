@@ -66,7 +66,6 @@ export const strings: UIStrings = {
     sep: '。另有 ',
     stop: '。',
     papersLink: '论文墙',
-    legacyLink: '旧站 learning-notes',
     recent: '最近更新',
     recentSub: '最近改动的三篇',
     shelfCount: (n) => `${n} 篇以此为主 · 全部 →`,

@@ -71,7 +71,6 @@ export const strings: UIStrings = {
     sep: '. Also: ',
     stop: '.',
     papersLink: 'the paper wall',
-    legacyLink: 'the legacy learning-notes site',
     recent: 'Recently updated',
     recentSub: 'the last three to change',
     shelfCount: (n) => `${n} primary · all →`,

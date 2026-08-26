@@ -10,14 +10,97 @@
    what you see is the package's bare face.
    ============================================================ */
 @import '@fontsource-variable/inter/index.css';
-@import '@fontsource-variable/source-serif-4/opsz.css';
-@import '@fontsource-variable/source-serif-4/opsz-italic.css';
-@import '@fontsource/noto-serif-sc/400.css';
-@import '@fontsource/noto-serif-sc/600.css';
 
 @import 'astro-inkstone/styles/tokens.css';
 @import 'astro-inkstone/styles/base.css';
 @import 'astro-inkstone/styles/browse.css';
+@import './demos.css';
+
+/* ============================================================
+   Identity — Apple 风格重皮：中性灰白 + 单一蓝强调 + 系统无衬线。
+   只覆写 tokens.css 的一层颜料（--p-*，昼夜双生）与字体栈，
+   语义层（--color-* / --wb-*）自动跟随，浅深两主题一并生效。
+   ============================================================ */
+:root {
+  /* papers → Apple 中性灰白 */
+  --p-paper: #f5f5f7;
+  --p-paper-card: #ffffff;
+  --p-paper-read: #ffffff;
+  --p-paper-soft: #f5f5f7;
+  --p-white: #ffffff;
+  --p-code: #f5f5f7;
+  --p-stage: #fafafc;
+  --p-math: #f5f5f7;
+
+  /* inks → 石墨近黑与系统灰 */
+  --p-ink: #1d1d1f;
+  --p-ink-warm-soft: #424245;
+  --p-ink-dim: #6e6e73;
+  --p-ink-faint: #6e6e73;
+  --p-ink-read: #1d1d1f;
+  --p-ink-read-soft: #424245;
+  --p-ink-read-faint: #6e6e73;
+
+  /* lines & borders */
+  --p-rule: #c7c7cc;
+  --p-border: #d2d2d7;
+  --p-border-soft: #e8e8ed;
+  --p-line-read: #e8e8ed;
+
+  /* pigments → 单一蓝强调，其余降为中性/低饱和 */
+  --p-zhu: #1d1d1f; /* 品牌记号：石墨 */
+  --p-shi: #0066cc; /* 阅读强调 / 链接：Apple 蓝 */
+  --p-shi-soft: #dceafa;
+  --p-shi-text: #0055ab;
+  --p-zhe: #a1a1a6; /* 线与边（callout 边等）：中性灰 */
+  --p-zhe-text: #636366;
+  --p-dai: #35708a; /* 次级内容强调：低饱和青蓝 */
+  --p-zi: #5e5ce6; /* “系统”语义：靛 */
+  --p-zi-text: #4a49c4;
+  --color-row-hover: #f7f7f9;
+  --color-tint-teal: #e1eef3;
+  --color-tint-mustard: #ececf1;
+  --color-tint-violet: #e5e4fa;
+  --color-warn-bg: #f4f0e9;
+  --color-system-bg: #e9e8f8;
+
+  /* night twins → Apple 深色 */
+  --p-dusk: #131315;
+  --p-dusk-1: #1c1c1f;
+  --p-dusk-card: #1d1d20;
+  --p-dusk-card-wb: #1b1b1e;
+  --p-dusk-code: #19191c;
+  --p-dusk-line: #2c2c2e;
+  --p-dusk-rule: #48484a;
+  --p-dusk-border: #3a3a3c;
+  --p-dusk-border-soft: #2c2c2e;
+  --p-moon: #f5f5f7;
+  --p-ink-n: #f5f5f7;
+  --p-ink-n-soft: #aeaeb2;
+  --p-ink-n-dim: #98989d;
+  --p-ink-n-faint: #98989d;
+  --p-ink-n-muted: #8e8e93;
+  --p-zhu-n: #e8e8ed;
+  --p-shi-n: #409cff; /* 深色链接蓝 */
+  --p-shi-soft-n: #102a44;
+  --p-zhe-n: #98989d;
+  --p-dai-n: #6ac4dd;
+  --p-zi-n: #8583f2;
+
+  /* 系统无衬线：SF 优先，链上 PingFang / Inter / Noto */
+  --font-display:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'PingFang SC',
+    'Inter Variable', 'Inter', 'Noto Sans SC', 'Noto Sans CJK SC', ui-sans-serif, system-ui,
+    sans-serif;
+  --font-body: var(--font-display);
+  --font-ui: var(--font-display);
+}
+
+/* 无衬线正文比衬线大一号才有同等可读性——收紧标题字距，放松正文行高 */
+.wb-title,
+.note-main h1 {
+  letter-spacing: -0.02em;
+}
 
 /* Generated content labels (--speak-label / --diff-label) follow the page
    language through an inline style emitted by layouts/Base.astro from the

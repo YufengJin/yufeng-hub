@@ -1,0 +1,256 @@
+/* ============================================================
+   demos.css — 从 learning-notes 旧站移植的笔记组件与交互 demo 样式。
+   --ln-* 色彩变量重映射到 inkstone token（随浅/深主题联动）；
+   画布保持白底（JS 以深色作图，数据图按「图片」对待，深色模式亦白底）。
+   ============================================================ */
+:root {
+  --ln-bg: var(--color-bg);
+  --ln-surface: var(--color-bg-card);
+  --ln-surface-2: var(--color-bg-soft);
+  --ln-ink: var(--color-ink);
+  --ln-ink-2: var(--color-ink-soft);
+  --ln-muted: var(--color-ink-faint);
+  --ln-line: var(--color-line);
+  --ln-acc: var(--color-accent);
+  --ln-acc-2: var(--color-accent-text);
+  --ln-amber: #b58a2c;
+  --ln-sans: var(--font-ui);
+  --ln-serif: var(--font-body);
+  --ln-mono: var(--font-mono);
+  --ln-acc-weak: var(--color-accent-soft);
+  --ln-hl: var(--color-math-bg);
+  --ln-good: #2e7d57;
+  --ln-bad: #b0433c;
+  --ln-section-gap: 72px;
+}
+/* ============================================================
+   文章结构部件 —— 把写作契约的「四拍」变成可见节奏。
+   写法见 .claude/skills/learning-note/SKILL.md 与 docs/style/index.md。
+   ============================================================ */
+
+/* ① Byline：日期 | 阅读时长 | 作者。紧跟 h1，下方细线收口 */
+.ln-byline {
+  font: 12.5px/1.6 var(--ln-sans);
+  color: var(--ln-ink-2);
+  letter-spacing: .03em;
+  margin: .2em 0 1.1em;
+  padding-bottom: .8em;
+  border-bottom: 1px solid var(--ln-line);
+}
+
+/* ② 导语：比正文大一号、颜色次级，读者 30 秒判断要不要读 */
+.ln-lead {
+  font-size: 19px;
+  line-height: 1.75;
+  color: var(--ln-ink-2);
+}
+
+/* ③ 读法建议：谁可以跳过哪节 */
+.ln-howto {
+  font: 14px/1.75 var(--ln-sans);
+  color: var(--ln-ink-2);
+  background: var(--ln-surface);
+  border: 1px solid var(--ln-line);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 20px 0 26px;
+}
+.ln-howto b { color: var(--ln-ink); }
+
+/* ④ eyebrow：节的定位标签，如「预备知识 2」「方法 02 · 分歧类」 */
+.ln-eyebrow {
+  font: 600 11px/1.4 var(--ln-sans);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ln-acc);
+  margin: var(--ln-section-gap) 0 0;
+}
+.ln-eyebrow:first-child { margin-top: 0; }
+
+/* ⑤ chips：本节实测数字浓缩成一行，扫读者不钻正文也能拿到结论 */
+.ln-chips {
+  display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0;
+}
+.ln-chip {
+  font: 11.5px/1 var(--ln-sans);
+  padding: 6px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--ln-line);
+  color: var(--ln-ink-2);
+  white-space: nowrap;
+}
+.ln-chip b { color: var(--ln-ink); font-weight: 650; }
+.ln-chip.good { border-color: var(--ln-good); color: var(--ln-good); }
+.ln-chip.bad  { border-color: var(--ln-bad);  color: var(--ln-bad); }
+
+/* ⑥ lesson：每节收尾的「教训」，琥珀左边框 —— 全站唯一的结论视觉 */
+.ln-lesson {
+  border-left: 4px solid var(--ln-acc2);
+  background: var(--ln-hl);
+  padding: 12px 18px;
+  border-radius: 0 6px 6px 0;
+  margin: 18px 0;
+}
+.ln-lesson > :first-child { margin-top: 0; }
+.ln-lesson > :last-child  { margin-bottom: 0; }
+
+/* ⑦ card：前瞻盒（埋雷）—— 先招呼后面章节会引爆的问题 */
+.ln-card {
+  background: var(--ln-surface);
+  border: 1px solid var(--ln-line);
+  border-radius: 6px;
+  padding: 18px 22px;
+  margin: 22px 0;
+}
+.ln-card > :first-child { margin-top: 0; }
+.ln-card > :last-child  { margin-bottom: 0; }
+
+/* ⑧ 误解盒：「很多人以为 X，实际上 Y」 */
+.ln-myth {
+  border-left: 4px solid var(--ln-bad);
+  background: var(--ln-surface);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 18px;
+  margin: 18px 0;
+}
+.ln-myth > :first-child { margin-top: 0; }
+.ln-myth > :last-child  { margin-bottom: 0; }
+.ln-myth .x { color: var(--ln-bad);  font-weight: 650; }
+.ln-myth .o { color: var(--ln-good); font-weight: 650; }
+
+/* ⑨ 概念标签：同一概念全文同色（如「认知」蓝 /「偶然」琥珀）*/
+.ln-c1, .ln-c2 {
+  padding: 1px 7px; border-radius: 4px; font-size: .95em;
+}
+.ln-c1 { background: var(--ln-acc-weak);  color: var(--ln-acc); }
+.ln-c2 { background: var(--ln-acc2-weak); color: var(--ln-acc2); }
+
+/* ⑩ verdict：预测 vs 实测的判定标记（表格里用）*/
+.ln-verdict {
+  display: inline-block;
+  font: 600 11px/1 var(--ln-sans);
+  letter-spacing: .06em;
+  padding: 5px 9px; border-radius: 4px;
+  text-transform: uppercase; color: #fff;
+}
+.ln-verdict.ok { background: var(--ln-good); }
+.ln-verdict.no { background: var(--ln-bad); }
+
+/* ⑪ 指标名内联样式：与普通行内代码区分开 */
+kbd.ln-metric {
+  background: var(--ln-surface-2);
+  border: 1px solid var(--ln-line);
+  box-shadow: none;
+  padding: 1px 6px; border-radius: 4px;
+  font: 13px var(--ln-mono); color: var(--ln-ink);
+}
+
+/* ===== 交互 demo（action-tokenization / autoregressive / fourier-dct）=====
+   浅色主题：画布白底，画布内绘图用深色文字/线条（见各 .js 的配色）。 */
+.ln-demo{
+  background:var(--ln-surface-2); border:1px solid var(--ln-line);
+  border-radius:12px; padding:18px; margin:22px 0;
+}
+.ln-demo .ln-demo-title{font-weight:700; color:var(--ln-ink); margin-bottom:4px}
+.ln-demo .ln-demo-hint{font-size:13px; color:var(--ln-muted); line-height:1.6; margin-bottom:12px}
+.ln-demo canvas{background:#FFFFFF; border:1px solid var(--ln-line); border-radius:8px; display:block; max-width:100%; width:100%; height:auto}
+.ln-demo .ln-controls{display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:12px 0; font-size:14px}
+.ln-demo .ln-controls label{display:flex; align-items:center; gap:8px; color:var(--ln-muted)}
+.ln-demo input[type=range]{accent-color:var(--ln-acc)}
+.ln-demo button{
+  background:var(--ln-surface); color:var(--ln-ink); border:1px solid var(--ln-line);
+  border-radius:8px; padding:7px 14px; cursor:pointer; font-size:14px;
+}
+.ln-demo button:hover{border-color:var(--ln-acc); color:var(--ln-acc)}
+.ln-demo .ln-val{color:var(--ln-acc); font-variant-numeric:tabular-nums; font-weight:600}
+.ln-demo .ln-readout{font-size:13px; color:var(--ln-muted); line-height:1.6; margin-top:8px; font-variant-numeric:tabular-nums}
+/* 切换型按钮的激活态（注意力掩码 / 平滑·粗糙 等 demo）*/
+.ln-demo button.on{border-color:var(--ln-acc); color:var(--ln-acc); background:var(--ln-acc-weak)}
+/* 图框：承载 SVG 示意图（如 BERT/GPT 架构图、输入序列结构图），浅色 */
+.ln-fig{background:#FFFFFF; border:1px solid var(--ln-line); border-radius:10px; padding:14px; margin:22px 0}
+.ln-fig svg{max-width:100%; height:auto; display:block; margin:0 auto}
+.ln-fig .ln-fig-cap{text-align:center; color:var(--ln-muted); font-size:13px; margin-top:8px}
+
+/* ===== 语义 tag 芯片（DIRECT / LEARNED / LOSSY）=====
+   沿用 demo 同款语义色：DIRECT 绿、LEARNED 紫、LOSSY 红；浅底高对比。 */
+.ln-tag{
+  display:inline-block; padding:.04em .55em; margin:0 .12em;
+  border-radius:999px; font-size:.7em; font-weight:700;
+  letter-spacing:.4px; vertical-align:middle; line-height:1.7;
+  border:1px solid transparent; white-space:nowrap;
+}
+.ln-direct { color:#2f7d3a; background:rgba(63,185,80,.13);  border-color:rgba(63,185,80,.38); }
+.ln-learned{ color:#6f49bf; background:rgba(188,140,255,.16); border-color:rgba(188,140,255,.45); }
+.ln-lossy  { color:#c0392f; background:rgba(248,81,73,.12);  border-color:rgba(248,81,73,.38); }
+
+
+/* ============================================================
+   fm-solvers 笔记（ml/fm-solvers.md）的交互 demo 样式。
+   全部走 fms- 前缀 + --fms-* 变量，不触碰站点全局样式；
+   求解器五色是数据语义色（仅用于 demo 图内），非站点强调色。
+   来源：fm_solver_exp/solver_blog_offline.html 的浅色主题。
+   ============================================================ */
+:root{
+  /* chrome 色一律指向站点 token（2026-08-06 随主题改为冷灰蓝）；
+     求解器五色是数据语义色，与主题无关，保持不动。 */
+  --fms-bg:var(--ln-bg); --fms-panel:var(--ln-surface);
+  --fms-ink:var(--ln-ink); --fms-muted:var(--ln-ink-2);
+  --fms-line:var(--ln-line); --fms-grid:var(--ln-surface-2);
+  --fms-euler:#C33C54; --fms-midpoint:#2E6FDF; --fms-heun:#1F8A5D;
+  --fms-rk4:#7B3FBF; --fms-dopri5:#D97706;
+  --fms-good:var(--ln-good); --fms-bad:var(--ln-bad);
+  --fms-serif:var(--ln-serif);
+  --fms-sans:var(--ln-sans);
+  --fms-mono:var(--ln-mono);
+}
+figure.fms-panel{background:var(--fms-panel);border:1px solid var(--fms-line);
+  border-radius:8px;padding:18px 18px 14px;margin:1.4rem 0 2rem}
+figure.fms-panel canvas{display:block;width:100%}
+figure.fms-panel figcaption{font-size:.84rem;color:var(--fms-muted);line-height:1.7;
+  padding:.65rem 2px 0;border-top:1px solid var(--fms-grid);margin-top:.7rem;text-align:left}
+figure.fms-panel figcaption b{color:var(--fms-ink);font-weight:650}
+.fms-controls{display:flex;flex-wrap:wrap;gap:.7rem 1.4rem;align-items:center;
+  padding:.35rem 0 .8rem}
+.fms-controls label{font-size:.82rem;color:var(--fms-muted);display:flex;
+  align-items:center;gap:.5rem}
+.fms-controls input[type=range]{accent-color:var(--fms-ink);width:150px}
+.fms-seg{display:inline-flex;border:1px solid var(--fms-line);border-radius:6px;overflow:hidden}
+.fms-seg button{border:0;background:transparent;color:var(--fms-muted);
+  font-family:var(--fms-mono);font-size:.78rem;padding:.34rem .7rem;cursor:pointer;
+  border-right:1px solid var(--fms-line)}
+.fms-seg button:last-child{border-right:0}
+.fms-seg button[aria-pressed="true"]{background:var(--fms-ink);color:var(--fms-panel)}
+.fms-readout{font-family:var(--fms-mono);font-size:.8rem;color:var(--fms-ink);
+  font-variant-numeric:tabular-nums}
+.fms-stats{display:flex;flex-wrap:wrap;gap:.5rem 2rem;padding:.5rem 0 .2rem;
+  font-family:var(--fms-mono);font-size:.8rem;font-variant-numeric:tabular-nums}
+.fms-stats .k{color:var(--fms-muted)}
+.fms-legend{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;font-size:.8rem;
+  font-family:var(--fms-mono);padding:.3rem 0 .5rem;color:var(--fms-muted)}
+.fms-legend span{display:flex;align-items:center}
+.fms-chip{display:inline-block;width:.68em;height:.68em;border-radius:2px;
+  margin-right:.35em;vertical-align:baseline;transform:translateY(.04em)}
+.fms-c-euler{background:var(--fms-euler)} .fms-c-midpoint{background:var(--fms-midpoint)}
+.fms-c-heun{background:var(--fms-heun)} .fms-c-rk4{background:var(--fms-rk4)}
+.fms-c-dopri5{background:var(--fms-dopri5)}
+.fms-t-euler{color:var(--fms-euler)} .fms-t-midpoint{color:var(--fms-midpoint)}
+.fms-t-heun{color:var(--fms-heun)} .fms-t-rk4{color:var(--fms-rk4)}
+.fms-t-dopri5{color:var(--fms-dopri5)}
+table.fms-butcher{width:auto;margin:0 auto}
+table.fms-butcher td{border:0;padding:.15rem .55rem;font-family:var(--fms-mono);
+  font-size:.78rem;text-align:center;font-variant-numeric:tabular-nums}
+table.fms-butcher td.cl{border-right:1.5px solid var(--fms-ink)}
+table.fms-butcher td.tp{border-top:1px solid var(--fms-line)}
+.fms-takeaways{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:12px;margin:1.4rem 0}
+.fms-tk{border:1px solid var(--fms-line);border-radius:8px;padding:14px 16px;
+  background:var(--fms-panel)}
+.fms-tk .n{font-family:var(--fms-serif);font-size:1.5rem;line-height:1;margin-bottom:.4rem}
+.fms-tk p{margin:.3rem 0;font-size:.86rem;line-height:1.65}
+.fms-tk .hd{font-weight:650;font-size:.92rem}
+#fmsTip{position:fixed;pointer-events:none;background:var(--fms-panel);
+  border:1px solid var(--fms-line);border-radius:6px;padding:.4rem .6rem;
+  font-family:var(--fms-mono);font-size:.74rem;line-height:1.5;
+  box-shadow:0 4px 14px rgba(0,0,0,.13);opacity:0;z-index:50;
+  font-variant-numeric:tabular-nums;max-width:260px}
+

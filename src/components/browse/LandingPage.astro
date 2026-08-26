@@ -11,7 +11,7 @@ import FacetNav from 'astro-inkstone/components/wiki/FacetNav.astro';
 import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
 import BrowseLayout from '../../layouts/BrowseLayout.astro';
 import { browseHrefFor, cardOf, facetBaseFor, facetsOf, localized, subLocaleOf } from '../../lib/display';
-import { browseAlternates, GITHUB_URL, href, LEGACY_NOTES_SITE, UI, type Locale } from '../../lib/i18n';
+import { browseAlternates, GITHUB_URL, href, localePrefix, UI, type Locale } from '../../lib/i18n';
 import { getWikiUnits, groupByPrimaryDomain } from '../../lib/taxonomy';
 import { STATUSES } from '../../content/notes/_meta/taxonomy';
 
@@ -43,8 +43,8 @@ const card = (note: (typeof units)[number]) => cardOf(note, locale, byId);
     <p class="wb-kicker">{b.kicker} <span class="sep">·</span> {b.kickerSub}</p>
     <h1 class="wb-title">{b.title}<span class="en">{b.titleSub}</span></h1>
     <p class="wb-lede">
-      {b.lede(units.length, domainCount)}{b.sep}<a href={href('papers/')}>{b.papersLink}</a> ·{' '}
-      <a href={LEGACY_NOTES_SITE}>{b.legacyLink}</a> · <a href={GITHUB_URL}>GitHub</a>{b.stop}
+      {b.lede(units.length, domainCount)}{b.sep}<a href={href(`${localePrefix(locale)}papers/`)}>{b.papersLink}</a> ·{' '}
+      <a href={GITHUB_URL}>GitHub</a>{b.stop}
     </p>
   </header>
 

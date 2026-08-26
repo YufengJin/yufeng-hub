@@ -1,0 +1,163 @@
+---
+/**
+ * The paper wall, in one locale — every poster from paper-snapshots as one
+ * card, newest first. Data comes from the `papers` collection (the
+ * sparse-cloned meta.json tree); posters live on the published
+ * paper-snapshots site and every card links out. Both locale routes render
+ * this one component, so the language switch always has a twin to land on.
+ */
+import { getCollection } from 'astro:content';
+import BrowseLayout from '../../layouts/BrowseLayout.astro';
+import { PAPERS_SITE, type Alternate, type Locale } from '../../lib/i18n';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+
+const papers = (await getCollection('papers'))
+  .map((p) => p.data)
+  .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
+const T = {
+  zh: {
+    title: '论文墙',
+    desc: `读过论文的中文图文海报索引——共 ${papers.length} 篇，按时间排列。`,
+    kicker: '论文墙',
+    kickerSub: 'paper wall',
+    heading: '读过的论文',
+    headingSub: 'poster digests, newest first',
+    lede: `每读一篇论文，产出一张中文图文海报——这里是全部 ${papers.length} 张的索引，点卡片进入海报页。检索与标签筛选在`,
+    ledeLink: 'paper-snapshots 站',
+    ledeTail: '更全。',
+    empty: '本次构建没有挂载论文数据——完整合集在',
+    crumb: '论文墙',
+  },
+  en: {
+    title: 'Paper wall',
+    desc: `Poster digests of papers I've read — ${papers.length} in total, newest first.`,
+    kicker: 'Paper wall',
+    kickerSub: '论文墙',
+    heading: 'Papers I have read',
+    headingSub: 'poster digests, newest first',
+    lede: `Every paper I read becomes a Chinese poster digest — this is the index of all ${papers.length}, one card per poster. Full search and tag filters live on`,
+    ledeLink: 'the paper-snapshots site',
+    ledeTail: '.',
+    empty: 'This build has no paper data mounted — the full collection lives at',
+    crumb: 'Paper wall',
+  },
+}[locale];
+
+const alternates: Alternate[] = [
+  { code: 'zh', route: 'papers/' },
+  { code: 'en', route: 'en/papers/' },
+];
+const posterUrl = (slug: string): string => `${PAPERS_SITE}/${slug}/`;
+---
+
+<BrowseLayout
+  title={T.title}
+  description={T.desc}
+  locale={locale}
+  crumbs={[{ label: T.crumb }]}
+  alternates={alternates}
+>
+  <header class="wb-hero">
+    <p class="wb-kicker">{T.kicker} <span class="sep">·</span> {T.kickerSub}</p>
+    <h1 class="wb-title">{T.heading}<span class="en">{T.headingSub}</span></h1>
+    <p class="wb-lede">
+      {T.lede}
+      <a href={`${PAPERS_SITE}/`}>{T.ledeLink}</a>{T.ledeTail}
+    </p>
+  </header>
+
+  {
+    papers.length === 0 && (
+      <p class="wall-empty">
+        {T.empty} <a href={`${PAPERS_SITE}/`}>paper-snapshots</a>
+      </p>
+    )
+  }
+
+  <ul class="wall">
+    {
+      papers.map((p) => (
+        <li class="wall-card">
+          <a href={posterUrl(p.slug)}>
+            <span class="wall-meta">
+              <span class="wall-date">{p.date ?? ''}</span>
+              {p.category && <span class="wall-cat">{p.category}</span>}
+              {p.arxiv_id && <span class="wall-arxiv">arXiv:{p.arxiv_id}</span>}
+            </span>
+            <span class="wall-title">{p.title_zh ?? p.title ?? p.title_en ?? p.slug}</span>
+            {p.title_en && p.title_en !== (p.title_zh ?? p.title) && <span class="wall-title-en">{p.title_en}</span>}
+            {(locale === 'en' ? (p.summary_en ?? p.summary_zh) : p.summary_zh) && (
+              <span class="wall-summary">{locale === 'en' ? (p.summary_en ?? p.summary_zh) : p.summary_zh}</span>
+            )}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BrowseLayout>
+
+<style>
+  .wall-empty {
+    font: 400 15px/1.7 var(--font-ui);
+    color: var(--color-ink-soft);
+  }
+  .wall {
+    list-style: none;
+    margin: 26px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+  .wall-card a {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    height: 100%;
+    padding: 16px 18px 15px;
+    border: 1px solid var(--wb-border, var(--color-line));
+    border-radius: 12px;
+    background: var(--wb-bg-card, var(--color-bg-card));
+    color: inherit;
+    text-decoration: none;
+    transition:
+      border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+  .wall-card a:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  .wall-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    font: 500 11px/1.4 var(--font-mono);
+    color: var(--wb-text-muted, var(--color-ink-faint));
+  }
+  .wall-cat {
+    color: var(--color-accent-text);
+  }
+  .wall-title {
+    font: 650 15.5px/1.45 var(--font-body);
+    color: var(--wb-text, var(--color-ink));
+    text-wrap: pretty;
+  }
+  .wall-title-en {
+    font: 400 12.5px/1.45 var(--font-ui);
+    color: var(--wb-text-soft, var(--color-ink-soft));
+  }
+  .wall-summary {
+    font: 400 13px/1.65 var(--font-ui);
+    color: var(--wb-text-soft, var(--color-ink-soft));
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
