@@ -20,8 +20,18 @@
 ├── pages/yufeng-papers/       # 论文墙模块仓库（海报流水线 + _src 工作目录 + 项目 skill）
 ├── yufeng-obsidian/           # 私人 Obsidian vault（独立 git）
 ├── inbox/                     # 统一收件箱：各机器投递的草稿（见 inbox-triage skill）
-└── update-site.sh             # 拉全部挂载 + 构建 + 重启私有站
+├── update-site.sh             # ↓ 三个都是软链 → hub-site/scripts/（本体随仓库版本化，
+├── run-preview.sh             #   clone 即得；这一层不是 git 仓库，别把本体放这儿）
+└── run-wiki.sh
 ```
+
+运维脚本（都在 `hub-site/scripts/`，上层留同名软链）：
+
+- `update-site.sh` — 拉全部挂载 + 构建 + 重启私有站。**内容更新后跑它**。
+- `run-preview.sh` — 私有站本体，pm2 进程 `yufeng-hub-preview`，
+  `astro preview` 服务 `dist/`，只绑 tailnet 地址 `100.81.38.119:4321`。
+- `run-wiki.sh` — 编辑机模式（`WIKI=1 astro dev`，带 inkbrush CMS），
+  **和 preview 抢 4321，一次只能起一个**。
 
 ## 必知须知
 
@@ -34,6 +44,16 @@
   每日 03:17 UTC cron 兜底，急了在有 gh 的机器上
   `gh workflow run deploy.yml -R YufengJin/yufeng-hub`）。
 - **git**：一律普通 commit + push，永不 force-push；提交信息中文、说清动机。
+- **私有站怎么访问**：`http://chaser-ws02-u:4321/yufeng-hub/`（tailnet 内，
+  MagicDNS 短名/全名/IP 均可；端口与 `/yufeng-hub/` 前缀不能省）。主机名要能
+  用，靠 `run-preview.sh` 里的 `SITE_HOST` 喂给 `vite.preview.allowedHosts`
+  ——Vite 的 Host 头校验对 dev 与 preview 是两套配置，只配 server 的话
+  IP 能开、主机名被挡。加新主机名改那里（逗号分隔）。
+- **别让 astro preview 变孤儿**：`run-preview.sh` 里的
+  `ASTRO_PREVIEW_BACKGROUND=0` 不能删。astro 检测到 agent 环境（`CLAUDECODE`
+  等）会自动 detach 成后台进程，pm2 的前台进程随即退出、被判崩溃并无限重启，
+  而真正在服务的是 pm2 管不到的孤儿。判断健康看一句话：`pm2 pid` 要等于
+  `ss -tlnp | grep 4321` 里的 pid。
 - **模块契约**（加新板块）见 README「模块契约」节。
 - 笔记方言易错点：手写章节编号会被拒（构建自动编号）；`[[x]]` 是 wikilink；
   display 数学必须三行 `$$` 形式；callout 只认
