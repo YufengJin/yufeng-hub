@@ -118,4 +118,18 @@ export interface UIStrings {
     allTags: string;
     chapters: (n: number) => string;
   };
+
+  /* ---- the private half: strings that only ever render where the vault
+     repository is mounted (the public build has no private notes at all) ---- */
+  vault: {
+    /** the vault index's name — and the crumb above every private note */
+    title: string;
+    /** the mark a private note carries on its cards and its meta strip */
+    badge: string;
+    kicker: string;
+    kickerSub: string;
+    titleSub: string;
+    lede: (n: number) => string;
+    desc: string;
+  };
 }

@@ -98,4 +98,14 @@ export const strings: UIStrings = {
     allTags: '全部标签',
     chapters: (n) => `${n} 章`,
   },
+
+  vault: {
+    title: '私密库',
+    badge: '私密',
+    kicker: '私密库',
+    kickerSub: 'the vault',
+    titleSub: 'rendered on this machine only',
+    lede: (n) => `共 ${n} 篇。与公开笔记同一套写法、同一套版式、同一张链接图——只是不进公开构建。`,
+    desc: '只在自己机器上渲染的私密笔记。',
+  },
 };

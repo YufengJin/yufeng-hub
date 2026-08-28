@@ -24,24 +24,35 @@ import { stripOf } from '../lib/display';
 import { baseIdOf, href, idIn, localeOfId, localePrefix, LOCALES, routeOfId, UI, type Alternate, type Locale } from '../lib/i18n';
 import { resolveTaxonomy } from '../lib/taxonomy';
 import { LOCALE_CODES } from '../content/notes/_meta/locales';
-import { RESERVED_SLUGS } from '../content/notes/_meta/taxonomy';
+import { RESERVED_EXACT, RESERVED_PREFIXES } from '../content/notes/_meta/taxonomy';
+import { isPrivate, VAULT_SEGMENT } from '../lib/private';
 
 export async function getStaticPaths() {
   const notes = await getCollection('notes');
-  // The id IS the route, so a note must not open a namespace the browse
-  // routes or the locale trees own. Mirrors are checked on the canonical id
-  // behind their locale prefix; a bare locale id would claim a mirror root.
-  const reserved = new Set<string>([...RESERVED_SLUGS, ...LOCALE_CODES]);
+  // The id IS the route, so a note must not take a route something else
+  // owns. Two kinds of reservation: a namespace (a parameterized browse
+  // route or a locale tree — nothing may start with it) and a single page
+  // (nothing may BE it, though notes live happily underneath — that is how
+  // `/vault/` the index and `vault/<note>` the private notes coexist).
+  // Mirrors are checked on the canonical id behind their locale prefix; a
+  // bare locale id would claim a mirror root.
+  const reservedPrefix = new Set<string>([...RESERVED_PREFIXES, ...LOCALE_CODES]);
+  const reservedExact = new Set<string>(RESERVED_EXACT);
   for (const entry of notes) {
     const canonical = baseIdOf(entry.id);
     const first = canonical === '' ? entry.id : (canonical.split('/')[0] ?? canonical);
-    if (reserved.has(first)) {
+    if (reservedPrefix.has(first)) {
       throw new Error(
         `notes/${entry.id}: its leading path segment "${first}" is reserved (${
           (LOCALE_CODES as readonly string[]).includes(first)
             ? `the ${first} locale namespace`
             : `the /${first}/ browse route`
         }) — rename the note`,
+      );
+    }
+    if (reservedExact.has(canonical)) {
+      throw new Error(
+        `notes/${entry.id}: "${canonical}" is the /${canonical}/ page's own route — rename the note (a note UNDER it, like ${canonical}/${entry.id.split('/').pop()}, is fine)`,
       );
     }
   }
@@ -67,17 +78,27 @@ const readingMinutes = remarkPluginFrontmatter?.['readingMinutes'];
 const locale: Locale = localeOfId(entry.id);
 const t = UI[locale];
 const baseId = baseIdOf(entry.id);
-const segments = baseId.split('/');
-const topic = segments[0] ?? baseId;
+/** The vault segment is a NAMESPACE, not a topic. Private notes nest under
+ *  it exactly as public notes nest under the site root, so a private hub and
+ *  its chapters find each other by the same rule a public hub uses — the
+ *  namespace is carried through every id built below and never mistaken for
+ *  a topic of its own. */
+const priv = isPrivate(entry.id);
+const ns = priv ? `${VAULT_SEGMENT}/` : '';
+const localId = baseId.slice(ns.length);
+const segments = localId.split('/');
+const topic = segments[0] ?? localId;
 const subPath = segments.slice(1).join('/');
 const langPrefix = localePrefix(locale);
+/** full id of a topic-relative path: locale prefix + namespace + path */
+const idOf = (path: string): string => `${langPrefix}${ns}${path}`;
 /** route of a full entry id (locale prefix included) */
 const routeTo = (id: string): string => href(routeOfId(id));
 
 /* ---------- hub rail (multi-chapter collection notes) ---------- */
 const hubEntry =
   subPath !== ''
-    ? byId.get(`${langPrefix}${topic}`)
+    ? byId.get(idOf(topic))
     : entry.data.nav
       ? entry
       : undefined;
@@ -98,7 +119,7 @@ if (hubEntry?.data.nav) {
     label: group.group,
     rows: group.pages.map((page): HubRow => {
       position += 1;
-      const childId = `${langPrefix}${topic}/${page}`;
+      const childId = idOf(`${topic}/${page}`);
       const child = byId.get(childId);
       if (!child) {
         // a nav entry with no file is a build error — the rail must never
@@ -148,7 +169,7 @@ if (hubEntry?.data.nav) {
   // in-column crumb, pointing at the canonical hub — the only hub route
   // that exists) is derived from it. The sibling rail and prev/next stay
   // absent: their rows would cross into the other language.
-  const canonicalHub = byId.get(topic);
+  const canonicalHub = byId.get(`${ns}${topic}`);
   if (canonicalHub?.data.nav) {
     const pages = canonicalHub.data.nav.flatMap((group) => group.pages);
     const position = pages.indexOf(subPath) + 1;
@@ -171,17 +192,20 @@ const alternates: Alternate[] = LOCALES.flatMap((l) => {
 /* ---------- breadcrumb ---------- */
 // A mirror chapter whose hub has no mirror links its crumb to the primary
 // hub — the only route that exists.
-const topicEntry = hubEntry ?? byId.get(topic);
-const crumbs =
+const topicEntry = hubEntry ?? byId.get(idOf(topic));
+const trail =
   subPath === ''
     ? [{ label: entry.data.title }]
     : [
         {
           label: topicEntry?.data.title ?? topic,
-          route: hubEntry ? `${langPrefix}${routeOfId(topic)}` : routeOfId(topic),
+          route: hubEntry ? routeOfId(idOf(topic)) : routeOfId(`${ns}${topic}`),
         },
         { label: entry.data.title },
       ];
+// A private note always hangs under the vault index — the trail says so,
+// and the index is the one route that is guaranteed to exist beside it.
+const crumbs = priv ? [{ label: t.vault.title, route: `${VAULT_SEGMENT}/` }, ...trail] : trail;
 
 /* ---------- taxonomy strip (chapters and mirrors inherit at build time) --- */
 const taxonomy = stripOf(
@@ -215,6 +239,7 @@ const brandHref = hub ? hub.hubHref : routeTo(entry.id);
   toc={toc}
   tocDepth={entry.data.tocDepth}
   taxonomy={taxonomy}
+  privateBadge={priv ? t.vault.badge : undefined}
   hub={hub}
   hubPage={hubPage}
   backlinks={backlinks}

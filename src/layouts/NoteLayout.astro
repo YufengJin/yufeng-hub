@@ -60,6 +60,11 @@ interface Props {
   toc: TocData;
   tocDepth?: 2 | 3;
   taxonomy?: TaxonomyStrip | undefined;
+  /** the mark a private note wears on its meta strip (the vault's badge
+   *  string, already in the page's language); absent for a public note.
+   *  It rides in as a data attribute so the strip stays the engine's
+   *  presentational component and the site keeps the wording. */
+  privateBadge?: string | undefined;
   hub?: HubNav | undefined;
   hubPage?: HubPageChrome | undefined;
   backlinks?: BacklinkItem[] | undefined;
@@ -79,6 +84,7 @@ const {
   toc,
   tocDepth = 2,
   taxonomy,
+  privateBadge,
   hub,
   hubPage,
   backlinks = [],
@@ -111,6 +117,7 @@ const t = UI[locale];
               updated={taxonomy.updated}
               reading={taxonomy.reading}
               labels={{ updated: t.updated }}
+              data-private={privateBadge}
               data-inkbrush-slot="frontmatter"
             />
           )

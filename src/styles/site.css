@@ -351,6 +351,46 @@ main.note-main {
   font-size: 12px;
 }
 
+/* ========================================================== the vault ===== */
+/* Private notes are ordinary notes of the `vault/` namespace — same layout,
+   same shelves, same link graph. The one thing they need is to say so at a
+   glance, so you always know which half you are reading before you cite it
+   somewhere public. Two marks, because they sit on components with
+   different reach:
+
+   - the note page's meta strip takes the wording from the page's own UI
+     strings, through `data-private` (see NoteLayout's privateBadge);
+   - the browse card is the engine's presentational NoteCard, which passes
+     no site data through, so its mark is matched on the id the card already
+     emits and worded here, once per locale. */
+.taxo-line[data-private]::before {
+  content: attr(data-private);
+}
+
+.note-card[data-id^='vault/'] .head::before,
+.note-card[data-id*='/vault/'] .head::before {
+  content: '私密';
+}
+html[lang='en'] .note-card[data-id^='vault/'] .head::before,
+html[lang='en'] .note-card[data-id*='/vault/'] .head::before {
+  content: 'private';
+}
+
+.taxo-line[data-private]::before,
+.note-card[data-id^='vault/'] .head::before,
+.note-card[data-id*='/vault/'] .head::before {
+  display: inline-block;
+  font: 600 10.5px/1 var(--font-ui);
+  letter-spacing: 0.05em;
+  padding: 3px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  /* a filled chip, not another outline — it must not read as one more
+     taxonomy value sitting beside the kind badge and the domain chips */
+  color: var(--color-accent-text);
+  background: var(--color-accent-soft);
+}
+
 @media print {
   .nav-toggle {
     display: none;

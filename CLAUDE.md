@@ -10,7 +10,9 @@
 ~/yufeng-hub/
 ├── hub-site/                  # 本仓库（壳 + skills + 运营手册）
 │   ├── src/content/notes/     # ← YufengJin/yufeng-wiki（公开笔记，独立 git）
-│   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git）
+│   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git；
+│                              #    与 notes 同属一个 collection，id 打进 vault/
+│                              #    命名空间，写法与版式和公开笔记完全一致）
 │   ├── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers）
 │   └── public/vault-static/   # ← mount-vault-static.sh 装配的私密静态站（勿手改，
 │                              #    源在 vault 仓库各条目的 site/ 目录；公开 CI 无 vault
@@ -25,9 +27,8 @@
 
 - **PATH**：非交互 shell 没有 nvm——一切 node/pnpm/pm2 前先
   `export PATH=$HOME/.nvm/versions/node/v22.23.2/bin:$PATH`。
-- **内容质量门禁**：wiki 笔记改动后必须过
-  `node packages/astro-inkbrush/scripts/check-content.mjs src/content/notes --math`
-  和 `node scripts/check-links.mjs`，再 `pnpm build`（含 postbuild dist 检查）。
+- **内容质量门禁**：笔记改动后必须过 `pnpm check`（方言 + 链接，公开 wiki 与
+  私密 vault 两边一起过），再 `pnpm build`（含 postbuild dist 检查）。
 - **发布链路**：各内容仓 commit+push 后，**私有站**跑 `~/yufeng-hub/update-site.sh`
   立即生效；**公开站**由 GitHub Actions 构建（壳仓库 push 即触发；纯内容更新靠
   每日 03:17 UTC cron 兜底，急了在有 gh 的机器上

@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
-import { buildWikilinkResolver, cachedScan } from 'astro-inkbrush/wikilinks';
 
 // The demo consumes the package one directory up via `file:..`; the package's
 // own dependencies resolve from the repo-root node_modules (the engine is
@@ -24,17 +23,14 @@ const SITE = process.env.HUB_SITE || 'https://yufengjin.github.io';
 const BASE = process.env.HUB_BASE || '/yufeng-hub';
 const BASE_PREFIX = normalizeBase(BASE);
 
-// [[wikilinks]] resolve against the note collection with the engine's own
+// [[wikilinks]] resolve against the note corpus with the engine's own
 // resolver — the same alias/brand/locale rules the CMS preview and the
-// check-wikilinks CLI use, so the three can never drift. The locale table is
-// the site registry's: the default locale's ids are unprefixed, every other
-// locale's mirrors live under its prefix.
-const { LOCALE_DEFS } = await import('./src/content/notes/_meta/locales.ts');
-const resolve = buildWikilinkResolver({
-  notes: cachedScan('src/content/notes'),
-  urlFor: (id) => `${BASE_PREFIX}/${id}/`,
-  locales: LOCALE_DEFS.map(({ code, prefix }) => ({ code, prefix })),
-});
+// check-wikilinks CLI use, so the three can never drift. Both mounts feed
+// that one graph; the wiring lives in src/lib/wikilinks.ts, which
+// scripts/check-links.mjs loads too, so the gate and the page resolve
+// [[x]] with the very same resolver.
+const { noteIdOf, resolverFor } = await import('./src/lib/wikilinks.ts');
+const resolve = resolverFor(BASE_PREFIX);
 
 export default defineConfig({
   site: SITE,
@@ -86,7 +82,7 @@ export default defineConfig({
       guard: { autoNumberedHeadings: true },
       wikilinks: {
         resolve,
-        noteIdOf: (path) => path?.match(/src\/content\/notes\/(.+)\/index\.mdx?$/)?.[1],
+        noteIdOf,
         onBroken: ({ file, target, kind }) =>
           console.warn(`[wikilinks] ${kind}: [[${target}]] ← ${file ?? '(unknown)'}`),
       },

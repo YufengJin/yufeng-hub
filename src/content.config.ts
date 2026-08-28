@@ -5,26 +5,96 @@ import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 
 import { DOMAIN_IDS, KIND_IDS, STATUS_IDS } from './content/notes/_meta/taxonomy';
+import { isPrivate, vaultIdOf } from './lib/private';
+
+type Loader = ReturnType<typeof glob>;
+
+/**
+ * A view of the data store restricted to one loader's id namespace.
+ *
+ * The glob loader treats every id in the store that its own scan did not
+ * touch as an orphan and deletes it (`store.keys()` at entry, the leftovers
+ * dropped at exit). Two globs sharing one store would therefore annihilate
+ * each other: whichever ran second would wipe the first's entries. Hiding
+ * the other namespace's keys confines each loader's cleanup to its own —
+ * every other method passes straight through, so incremental rebuilds,
+ * digests and asset imports behave exactly as they do for a lone glob.
+ *
+ * A Proxy rather than a hand-written object: only `keys` is overridden and
+ * everything else — including methods the public DataStore type does not
+ * declare — reaches the real store untouched, bound to it, so nothing here
+ * has to track the store's surface as it changes.
+ */
+function scoped(loader: Loader, owns: (id: string) => boolean): Loader {
+  return {
+    name: loader.name,
+    load: (ctx) =>
+      loader.load({
+        ...ctx,
+        store: new Proxy(ctx.store, {
+          get(target, prop) {
+            if (prop === 'keys') return () => [...target.keys()].filter(owns);
+            // bound to the real store, never to the proxy: a method reading
+            // private state must see its own instance
+            const value = Reflect.get(target, prop, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        }),
+      }),
+  };
+}
 
 /**
  * One note = one `<id>/index.mdx`, and the id IS the route.
  *
- *   notes/design-tokens/index.mdx        → /design-tokens/        (en, canonical)
+ *   notes/design-tokens/index.mdx        → /design-tokens/        (zh, canonical)
  *   notes/components/index.mdx           → /components/           (a hub note)
  *   notes/components/content/index.mdx   → /components/content/   (hub chapter)
- *   notes/zh/design-tokens/index.mdx     → /zh/design-tokens/     (zh mirror)
+ *   notes/en/design-tokens/index.mdx     → /en/design-tokens/     (en mirror)
+ *   vault/rlinf-learning/index.mdx       → /vault/rlinf-learning/ (private)
  *
- * en is the primary locale and its ids carry no prefix; zh mirrors carry
- * `zh/`. Taxonomy fields are validated against the registry in
+ * zh is the primary locale and its ids carry no prefix; en mirrors carry
+ * `en/`. Taxonomy fields are validated against the registry in
  * `_meta/taxonomy.ts` — a typo in `kind:` fails the build instead of
  * silently dropping the note from its shelf.
+ *
+ * TWO MOUNTS, ONE COLLECTION. The public wiki (`src/content/notes`, the
+ * public repo YufengJin/yufeng-wiki) and the private vault
+ * (`src/content/vault`, the PRIVATE repo YufengJin/yufeng-vault, gitignored)
+ * are separate git repositories that load into a single collection; the
+ * vault's ids are stamped into the `vault/` namespace (see lib/private.ts).
+ * One collection is what makes the two halves genuinely one wiki: browse
+ * pages, the search index, backlinks, the link graph and the note route all
+ * read this collection and therefore see both, with nothing to keep in sync.
+ *
+ * Privacy is a property of the BUILD, not of a flag. The public CI never
+ * clones the vault repo, so `src/content/vault` is absent, the second loader
+ * is dropped entirely, and the public site cannot render, list, link or
+ * index a private note because no such entry ever exists there.
  */
+const notesGlob = glob({
+  pattern: ['**/index.mdx', '!_meta/**'],
+  base: './src/content/notes',
+  generateId: ({ entry }) => entry.replace(/\/index\.mdx$/, ''),
+});
+
+const vaultMounted = existsSync(new URL('./content/vault', import.meta.url));
+const vaultGlob = glob({
+  pattern: ['**/index.mdx', '!_meta/**'],
+  base: './src/content/vault',
+  generateId: ({ entry }) => vaultIdOf(entry.replace(/\/index\.mdx$/, '')),
+});
+
 const notes = defineCollection({
-  loader: glob({
-    pattern: ['**/index.mdx', '!_meta/**'],
-    base: './src/content/notes',
-    generateId: ({ entry }) => entry.replace(/\/index\.mdx$/, ''),
-  }),
+  loader: vaultMounted
+    ? {
+        name: 'notes+vault',
+        load: async (ctx) => {
+          await scoped(notesGlob, (id) => !isPrivate(id)).load(ctx);
+          await scoped(vaultGlob, isPrivate).load(ctx);
+        },
+      }
+    : notesGlob,
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
@@ -66,32 +136,6 @@ const notes = defineCollection({
 });
 
 /**
- * The private vault — a separate PRIVATE repository cloned into
- * `src/content/vault` (gitignored). The public CI build never clones it, so
- * the whole collection is empty there and no /vault/ page is generated:
- * privacy by construction, not by access control. The loader is swapped for
- * a no-op when the mount is absent — a glob over a missing base would warn
- * on every build.
- */
-const vaultMounted = existsSync(new URL('./content/vault', import.meta.url));
-const vault = defineCollection({
-  loader: vaultMounted
-    ? glob({
-        pattern: ['**/index.mdx', '**/index.md', '!_meta/**'],
-        base: './src/content/vault',
-        generateId: ({ entry }) => entry.replace(/\/index\.mdx?$/, ''),
-      })
-    : { name: 'vault-absent', load: async () => {} },
-  schema: z.object({
-    title: z.string(),
-    description: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-    created: z.coerce.date().optional(),
-    updated: z.coerce.date().optional(),
-  }),
-});
-
-/**
  * The paper wall: poster pages staged into `public/papers/<slug>/`
  * (scripts/mount-papers.sh — self-contained static HTML + WebP, published
  * verbatim), and this collection reads the same tree's meta.json for the
@@ -118,4 +162,4 @@ const papers = defineCollection({
   }),
 });
 
-export const collections = { notes, vault, papers };
+export const collections = { notes, papers };

@@ -103,4 +103,14 @@ export const strings: UIStrings = {
     allTags: 'All tags',
     chapters: (n) => `${n} chapters`,
   },
+
+  vault: {
+    title: 'Vault',
+    badge: 'private',
+    kicker: 'the vault',
+    kickerSub: '私密库',
+    titleSub: '只在本机渲染',
+    lede: (n) => `${n} notes. Same dialect, same layout, same link graph as the public ones — they simply never enter the public build.`,
+    desc: 'Private notes, rendered on this machine only.',
+  },
 };

@@ -10,7 +10,7 @@
     "postbuild": "node packages/astro-inkbrush/scripts/check-dist.mjs dist --base ${HUB_BASE:-/yufeng-hub}",
     "preview": "astro preview",
     "wiki": "WIKI=1 astro dev",
-    "check": "node packages/astro-inkbrush/scripts/check-content.mjs src/content/notes --math && node scripts/check-links.mjs"
+    "check": "node scripts/check-content.mjs && node scripts/check-links.mjs"
   },
   "engines": {
     "node": ">=22.18.0"

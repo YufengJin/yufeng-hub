@@ -53,16 +53,21 @@ ls -la ~/yufeng-hub/inbox/
 
 ```bash
 cd ~/yufeng-hub/hub-site
-node packages/astro-inkbrush/scripts/check-content.mjs src/content/notes --math
-node scripts/check-links.mjs
+pnpm check          # 方言 + 链接门禁，公开与私密两边一起过
 git -C src/content/notes add -A && git -C src/content/notes commit -m "..." && git -C src/content/notes push
 ```
 
 ### 私密 → yufeng-vault
 
-同 wiki 流程，落 `~/yufeng-hub/hub-site/src/content/vault/<slug>/index.md`，
-frontmatter 只需 title/description/created/updated（schema 更宽松，不进公开构建）。
+同 wiki 流程，落 `~/yufeng-hub/hub-site/src/content/vault/<slug>/index.mdx`
+（**.mdx，不是 .md**）。私密笔记就是 `vault/` 命名空间下的普通笔记，
+**frontmatter 与公开笔记完全一致**：title / description / kind / domains /
+tags / status / created / updated，多章节还有 nav / part。同一套版式、
+同一张链接图、同一套质检——`pnpm check` 一条命令两边都过。
 `git -C src/content/vault` add/commit/push。
+
+> 别在**公开**笔记里 `[[链接]]` 私密笔记：公开构建里目标不存在，CI 会红。
+> 反向（私密链公开）完全正常。
 
 ### 原始素材 → obsidian
 
