@@ -23,6 +23,13 @@ const SITE = process.env.HUB_SITE || 'https://yufengjin.github.io';
 const BASE = process.env.HUB_BASE || '/yufeng-hub';
 const BASE_PREFIX = normalizeBase(BASE);
 
+// Hostnames the dev server and the static preview may be reached by (see the
+// vite block at the bottom); empty means IP-only access.
+const ALLOWED_HOSTS = (process.env.SITE_HOST ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
+
 // [[wikilinks]] resolve against the note corpus with the engine's own
 // resolver — the same alias/brand/locale rules the CMS preview and the
 // check-wikilinks CLI use, so the three can never drift. Both mounts feed
@@ -92,10 +99,16 @@ export default defineConfig({
   // An editing host is a permanent dev server: Vite's /@fs route must never
   // serve the CMS state, env files or key material. The deny list is the
   // package's; a site adds its own sensitive paths via extraDeny.
+  //
+  // allowedHosts is Vite's Host-header check (DNS-rebinding protection).
+  // Both long-running servers on this box are reached by their tailnet NAME,
+  // and dev and preview take SEPARATE config: the editing server is `server`,
+  // the private static site is `preview`. Configuring only `server` is why
+  // http://<name>:4321 answered "Blocked request" while the IP still worked —
+  // an IP host is never checked. SITE_HOST takes a comma-separated list, so
+  // the MagicDNS short name and the full name can both be named.
   vite: {
-    server: {
-      allowedHosts: process.env.SITE_HOST ? [process.env.SITE_HOST] : [],
-      ...secureFsDeny(),
-    },
+    server: { allowedHosts: ALLOWED_HOSTS, ...secureFsDeny() },
+    preview: { allowedHosts: ALLOWED_HOSTS },
   },
 });
