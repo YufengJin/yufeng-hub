@@ -62,6 +62,12 @@ store 上），vault 的 id 打进 `vault/` 命名空间（`src/lib/private.ts`�
 `pnpm check` 会在公开 CI 上直接失败。反向（私密链公开）完全正常。这条压力
 是故意的：公开的那一半必须能独立成立。
 
+**门禁**（`scripts/check-privacy.mjs`，`pnpm check` 与 `pnpm build` 都会跑）
+补上 `.gitignore` 管不到的那半边——私密文件被复制到挂载点之外再提交：壳仓库
+不得跟踪两个挂载点下的任何文件；没有 vault 挂载时，产物里不得有 `/vault/`
+页面、`/vault-static/`、指向它们的链接或搜索索引记录。笔记要用的私密资产
+走 vault 自己的 `site/` 目录，**绝不复制进壳仓库的 `public/`**。
+
 ## 模块契约（以后加新板块照此办理）
 
 壳仓库只放代码，**内容和重资产一律独立仓库**，构建时挂载——壳永远轻，

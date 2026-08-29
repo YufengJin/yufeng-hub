@@ -55,9 +55,29 @@
   而真正在服务的是 pm2 管不到的孤儿。判断健康看一句话：`pm2 pid` 要等于
   `ss -tlnp | grep 4321` 里的 pid。
 - **模块契约**（加新板块）见 README「模块契约」节。
-- 笔记方言易错点：手写章节编号会被拒（构建自动编号）；`[[x]]` 是 wikilink；
-  display 数学必须三行 `$$` 形式；callout 只认
-  note/info/tip/hint/warn(ing)/caution/danger/important/system/abstract/summary/quote。
+- **隐私门禁**：`pnpm check` 与 `pnpm build` 都会跑 `scripts/check-privacy.mjs`。
+  它管的是 `.gitignore` 管不到的那半边——私密文件被复制到挂载点之外再提交。
+  两条：壳仓库不得跟踪 `src/content/vault/`、`public/vault-static/` 下的任何
+  文件；没有 vault 挂载时（公开 CI）产物里不得有 `/vault/` 页面、
+  `/vault-static/`、指向它们的链接或搜索索引记录。
+  **私密资产要给笔记用，走 vault 自己的 `site/` 目录**（`mount-vault-static.sh`
+  会装配到 `/vault-static/<slug>/`），绝不复制进壳仓库的 `public/`。
+- 笔记方言易错点：
+  - 手写章节编号会被拒（构建自动编号）；`[[x]]` 是 wikilink；display 数学必须
+    三行 `$$` 形式；callout 只认 note/info/tip/hint/warn(ing)/caution/danger/
+    important/system/abstract/summary/quote。
+  - **表格单元格里的 `|` 必须写成 `\|`**——行内 code 里的管道符尤其致命，
+    一个 `awk '{print $1}'` 里的管道符就能把单元格切断，露出的花括号又被
+    MDX 当成表达式。
+  - **正文里裸的 `<` `{` `}` 会被 MDX 当 JSX**（`<1%` 直接报错，因为 `1` 不能
+    起标签名），写成 `&lt;` `&#123;` `&#125;`。代码块内不受影响。
+  - **表格里别用带标签的 wikilink**：为躲表格分隔符而写的 `\|` 会被 wikilink
+    解析器吃进 target，`[[a\|b]]` 变成找不到的 `a\`。表格里用普通链接。
+- **多章节 hub 怎么写**（`vault/rlinf-learning/` 是第一个范例）：hub 笔记给
+  `nav: [{group, pages}]` 并设 `chapters: false`；每章一个子目录，frontmatter
+  写 `part: N` 和 `navLabel`。约束有两条，破了直接构建失败：`part` 必须等于该
+  章在 nav 里的**全局**位置（跨 group 连续数），nav 里引用的页面必须真实存在。
+  分组只能按顺序切连续段——nav 的顺序就是 part 的顺序，也就是阅读顺序。
 
 ## Skills
 
