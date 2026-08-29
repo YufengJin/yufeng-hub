@@ -11,7 +11,7 @@ import { getCollection } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
 import { createTaxonomy, fmtMonth } from 'astro-inkstone/lib/taxonomy';
 
-import { DEFAULT_LOCALE, LOCALE_DEFS } from '../content/notes/_meta/locales';
+import { DEFAULT_LOCALE, LOCALE_DEFS, type Locale } from '../content/notes/_meta/locales';
 import { DOMAINS, KINDS, STATUSES } from '../content/notes/_meta/taxonomy';
 import { isPrivate, VAULT_SEGMENT, withoutVault } from './private';
 
@@ -105,16 +105,26 @@ export function resolveTaxonomy(entry: NoteEntry, byId: Map<string, NoteEntry>):
 }
 
 /**
- * All browse units, newest first: primary-locale top-level entries of BOTH
+ * The browse units, newest first: primary-locale top-level entries of BOTH
  * halves. Replaces the engine's `getWikiUnits`, whose top-level test is
  * `id has no slash` — true for a public note, never true for a private one.
+ *
+ * `locale` keeps only the notes that actually EXIST in that language. A
+ * shelf must not offer what the reader cannot read: a card for a note with
+ * no mirror in the page's language would link out of that language, and
+ * from there the whole chrome is the other language and nothing remembers
+ * where the reader wanted to be. Filtering here is what keeps a language,
+ * once chosen, from silently ending — every browse surface reads this one
+ * function. Omitting `locale` returns both halves of the corpus (the link
+ * graph and the search index want everything).
  */
-export async function getWikiUnits(): Promise<ResolvedNote[]> {
+export async function getWikiUnits(locale?: Locale): Promise<ResolvedNote[]> {
   const notes = await getCollection('notes');
   const byId = new Map(notes.map((n) => [n.id, n]));
   return notes
     .filter((n) => !withoutVault(n.id).includes('/'))
     .map((n) => resolveTaxonomy(n, byId))
+    .filter((u) => locale === undefined || u.locales.includes(locale))
     .sort(
       (a, b) => (b.updated?.getTime() ?? 0) - (a.updated?.getTime() ?? 0) || a.id.localeCompare(b.id),
     );

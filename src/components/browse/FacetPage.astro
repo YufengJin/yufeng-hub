@@ -12,7 +12,7 @@ import FacetNav from 'astro-inkstone/components/wiki/FacetNav.astro';
 import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
 import BrowseLayout from '../../layouts/BrowseLayout.astro';
 import { cardOf, facetBaseFor, facetsOf, localized, subLocaleOf, type FacetDim } from '../../lib/display';
-import { browseAlternates, UI, type Locale } from '../../lib/i18n';
+import { LOCALES, UI, type Locale } from '../../lib/i18n';
 import { getWikiUnits, type ResolvedNote } from '../../lib/taxonomy';
 import type { DomainDef, KindDef, StatusDef } from '../../content/notes/_meta/taxonomy';
 
@@ -31,13 +31,36 @@ const t = UI[locale];
 const b = t.browse;
 const sub = subLocaleOf(locale);
 
-const units = await getWikiUnits();
+const units = await getWikiUnits(locale);
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
 const facets = facetsOf(units, locale);
 
 const d = def && dim !== 'tag' ? localized(dim, def, locale) : undefined;
 const dSub = def && dim !== 'tag' ? localized(dim, def, sub) : undefined;
 const value = def ? def.id : (tag ?? '');
+
+/**
+ * A facet value can exist in one language and not the other — a note with no
+ * mirror carries its tags only into its own language. The language menu must
+ * therefore list only the locales whose page actually gets generated: a row
+ * pointing at a route that was never built sends the reader to a 404, which
+ * is a worse way to lose the language than the one this filtering fixes.
+ */
+const has = (u: ResolvedNote[]): boolean =>
+  dim === 'tag'
+    ? u.some((n) => n.tags.includes(value))
+    : dim === 'domain'
+      ? u.some((n) => n.domains.some((d) => d === value))
+      : dim === 'kind'
+        ? u.some((n) => n.kind === value)
+        : u.some((n) => n.status === value);
+const alternates = (
+  await Promise.all(
+    LOCALES.map(async (l) =>
+      has(await getWikiUnits(l.code)) ? [{ code: l.code, route: `${l.prefix}${dim}/${value}/` }] : [],
+    ),
+  )
+).flat();
 
 const kicker = { kind: b.byKind, domain: b.byDomain, status: b.byStatus, tag: b.byTag }[dim];
 const kickerSub = {
@@ -60,7 +83,7 @@ const tone = dim === 'domain' && def && 'tone' in def ? def.tone.fg : undefined;
   description={description}
   locale={locale}
   crumbs={[{ label: heading }]}
-  alternates={browseAlternates(`${dim}/${value}/`)}
+  alternates={alternates}
 >
   <header class="wb-hero">
     <p class="wb-kicker" style={tone ? `--kicker-fg:${tone}` : undefined}>{kicker} <span class="sep">·</span> {kickerSub}</p>

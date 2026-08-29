@@ -22,7 +22,7 @@ const t = UI[locale];
 const links = browseHrefFor(locale);
 const p = localePrefix(locale);
 
-const units = await getWikiUnits();
+const units = await getWikiUnits(locale);
 const recent = units.slice(0, 3);
 const domainCount = new Set(units.flatMap((u) => u.domains)).size;
 

@@ -20,23 +20,25 @@ import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
 
 import BrowseLayout from '../../layouts/BrowseLayout.astro';
 import { cardOf } from '../../lib/display';
-import { UI } from '../../lib/i18n';
+import { DEFAULT_LOCALE, UI } from '../../lib/i18n';
 import { isPrivate } from '../../lib/private';
 import { getWikiUnits } from '../../lib/taxonomy';
 
 /** the vault is written in the garden's canonical language; an English
- *  index arrives the day an English private note does */
-const LOCALE = 'zh' as const;
+ *  index arrives the day an English private note does. Referenced through
+ *  the imported constant, not a local one: getStaticPaths is hoisted out of
+ *  the component's scope and cannot see module-level consts declared here. */
+const LOCALE = DEFAULT_LOCALE;
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
+  const units = await getWikiUnits(DEFAULT_LOCALE);
   if (!units.some((u) => isPrivate(u.id))) return [];
   return [{ params: { slug: undefined } }];
 }
 
 const v = UI[LOCALE].vault;
 const b = UI[LOCALE].browse;
-const units = (await getWikiUnits()).filter((u) => isPrivate(u.id));
+const units = (await getWikiUnits(LOCALE)).filter((u) => isPrivate(u.id));
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
 ---
 

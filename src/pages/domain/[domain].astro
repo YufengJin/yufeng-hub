@@ -1,12 +1,13 @@
 ---
-/** /domain/<id>/ — browse by domain (only non-empty values prerender); English. */
+/** /domain/<domain>/ — 按方向浏览（只有非空的值会预渲染）；默认语言（中文）。 */
 import FacetPage from '../../components/browse/FacetPage.astro';
+import { DEFAULT_LOCALE } from '../../content/notes/_meta/locales';
 import { getWikiUnits, groupByDomain } from '../../lib/taxonomy';
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
+  const units = await getWikiUnits(DEFAULT_LOCALE);
   return groupByDomain(units).map((g) => ({ params: { domain: g.def.id }, props: { def: g.def, notes: g.notes } }));
 }
 ---
 
-<FacetPage locale="en" dim="domain" {...Astro.props} />
+<FacetPage locale={DEFAULT_LOCALE} dim="domain" {...Astro.props} />

@@ -1,12 +1,13 @@
 ---
-/** /kind/<id>/ — browse by kind (only non-empty values prerender); English. */
+/** /kind/<kind>/ — 按形式浏览（只有非空的值会预渲染）；默认语言（中文）。 */
 import FacetPage from '../../components/browse/FacetPage.astro';
+import { DEFAULT_LOCALE } from '../../content/notes/_meta/locales';
 import { getWikiUnits, groupByKind } from '../../lib/taxonomy';
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
+  const units = await getWikiUnits(DEFAULT_LOCALE);
   return groupByKind(units).map((g) => ({ params: { kind: g.def.id }, props: { def: g.def, notes: g.notes } }));
 }
 ---
 
-<FacetPage locale="en" dim="kind" {...Astro.props} />
+<FacetPage locale={DEFAULT_LOCALE} dim="kind" {...Astro.props} />

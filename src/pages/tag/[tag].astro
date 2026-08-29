@@ -1,12 +1,13 @@
 ---
-/** /tag/<tag>/ — browse by tag (only non-empty values prerender); English. */
+/** /tag/<tag>/ — 按标签浏览（只有非空的值会预渲染）；默认语言（中文）。 */
 import FacetPage from '../../components/browse/FacetPage.astro';
+import { DEFAULT_LOCALE } from '../../content/notes/_meta/locales';
 import { getWikiUnits, tagIndex } from '../../lib/taxonomy';
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
+  const units = await getWikiUnits(DEFAULT_LOCALE);
   return [...tagIndex(units).entries()].map(([tag, notes]) => ({ params: { tag }, props: { tag, notes } }));
 }
 ---
 
-<FacetPage locale="en" dim="tag" {...Astro.props} />
+<FacetPage locale={DEFAULT_LOCALE} dim="tag" {...Astro.props} />

@@ -1,15 +1,16 @@
 ---
-/** /status/<id>/ — browse by maturity status (only non-empty values prerender); English. */
+/** /status/<status>/ — 按成熟度浏览（只有非空的值会预渲染）；默认语言（中文）。 */
 import FacetPage from '../../components/browse/FacetPage.astro';
+import { DEFAULT_LOCALE } from '../../content/notes/_meta/locales';
 import { getWikiUnits } from '../../lib/taxonomy';
 import { STATUSES } from '../../content/notes/_meta/taxonomy';
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
+  const units = await getWikiUnits(DEFAULT_LOCALE);
   return STATUSES.map((def) => ({ def, notes: units.filter((u) => u.status === def.id) }))
     .filter((s) => s.notes.length > 0)
     .map((s) => ({ params: { status: s.def.id }, props: s }));
 }
 ---
 
-<FacetPage locale="en" dim="status" {...Astro.props} />
+<FacetPage locale={DEFAULT_LOCALE} dim="status" {...Astro.props} />

@@ -6,13 +6,18 @@ import { LOCALE_DEFS } from '../../../content/notes/_meta/locales';
 import { getWikiUnits, groupByKind } from '../../../lib/taxonomy';
 
 export async function getStaticPaths() {
-  const units = await getWikiUnits();
-  return LOCALE_DEFS.filter((l) => l.prefix !== '').flatMap((l) =>
-    groupByKind(units).map((g) => ({
-      params: { lang: l.code, kind: g.def.id },
-      props: { locale: l.code, def: g.def, notes: g.notes },
-    })),
+  // 每个语言只枚举在该语言下真实存在的笔记。一张卡片若链向别的语言，
+  // 读者就被带出了自己选的那门语言，而站内没有任何东西记得他想回去。
+  const perLocale = await Promise.all(
+    LOCALE_DEFS.filter((l) => l.prefix !== '').map(async (l) => {
+      const units = await getWikiUnits(l.code);
+      return groupByKind(units).map((g) => ({
+        params: { lang: l.code, kind: g.def.id },
+        props: { locale: l.code, def: g.def, notes: g.notes },
+      }));
+    }),
   );
+  return perLocale.flat();
 }
 ---
 

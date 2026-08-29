@@ -1,6 +1,7 @@
 ---
-/** /all/ — every note, newest first, with instant filters; English. */
+/** /all/ — 全部笔记，最新在前，带即时筛选；默认语言（中文）。 */
 import AllNotesPage from '../../components/browse/AllNotesPage.astro';
+import { DEFAULT_LOCALE } from '../../content/notes/_meta/locales';
 ---
 
-<AllNotesPage locale="en" />
+<AllNotesPage locale={DEFAULT_LOCALE} />

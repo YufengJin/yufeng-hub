@@ -24,7 +24,7 @@ const { locale } = Astro.props;
 const b = UI[locale].browse;
 const links = browseHrefFor(locale);
 
-const units = await getWikiUnits();
+const units = await getWikiUnits(locale);
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
 const facets = facetsOf(units, locale);
 const allTags = [...tagIndex(units).keys()];
