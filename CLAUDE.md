@@ -109,7 +109,57 @@
   点开可以手动推。autopush 是发完就返回的，失败本来只进服务端日志。
 - `inkbrush.config.ts` 是**一机一份、gitignored** 的：换机器要照
   `packages/astro-inkbrush/inkbrush.config.example.ts` 重写一份，别忘了
-  `content.mounts` 那段，否则 vault 笔记在 CMS 里打不开。
+  `content.mounts` 和 `identity` 两段，否则 vault 笔记在 CMS 里打不开、
+  或者谁都登不进来。
+
+## 谁能进来（授权用户）
+
+私有站不再是敞开的。`auth.dev` **已关闭**——以前 tailnet 内任何人填个名字
+邮箱就能编辑，正是这个洞。现在只有 `.wiki/users.json` 里、且管理员给设过
+密码的人能登录。
+
+- **登录**：右下角账号 chip → 账号或邮箱 + 密码。`yjin` 和邮箱都能当登录名
+  （名字在册中唯一时才行）。密码 scrypt 存储，明文不落任何文件；连错 5 次
+  锁 15 分钟（按账号和来源地址两路计数）。
+- **三级角色**，`roles` 的顺序就是权限高低：
+  - `reader` —— 登录进来只能读（**包括私密 vault**），改稿 / AI / 批注 /
+    评论 / 同步 / 分享一律拒绝，而且这些入口在界面上直接不显示。
+  - `editor` —— 能写。
+  - `admin` —— 还能管账号：加人、改角色、设/重置/清除别人的密码。
+    服务端保证至少留一个 admin。
+- **账号管理**在账号面板里（登录后 chip → 成员管理），admin 可见。每个人
+  也能在自己的面板里改自己的密码（要验旧密码）。
+- **`.wiki/users.json` 是 gitignored 的**，和批注一样只在这台机器上，
+  永远不进任何内容仓。里面存的是 scrypt 哈希，不是密码。
+
+## 私密 vault 的阅读门禁
+
+未登录时 **vault 在全站不存在**：页面打不开、列表里没有卡片、搜索索引里
+没有记录、导航上没有入口。登录且在册（任何角色）就照常看见。
+
+- 门禁在 `src/lib/vault-guard.mjs`，装在 vite 中间件层。**为什么不用 Astro
+  middleware**：站点是 `output: 'static'`，Astro 把页面当预渲染路由，喂给
+  middleware 的是一个合成的空 Request——实测连一个请求头都没有，拿不到
+  cookie。vite 那一层才有完整请求。
+- 规则只有一条：**指向 vault 的链接所在的那一条列表项整个消失**。它同时
+  覆盖了 NoteCard、首页「最近更新」、导航入口；不在列表里的（正文里指向
+  私密笔记的 wikilink）降级成纯文本，字还在，路没了。所以 hub-site 的渲染
+  代码一行都不用改。
+- **剥空即整页挡**：一个只由私密笔记撑起来的页面（比如只有 vault 笔记用过的
+  标签 `/tag/ik/`），光是「它存在、标题写着几篇」就已经泄漏。剥完卡片一张
+  不剩就整页 302。**不能改成构建时不生成这些页**——vault 笔记自己要链过去，
+  不生成就是死链，dist 门禁会当场拒绝（试过，构建直接失败）。
+- **`/vault-static/` 必须在这一层挡**：那些请求会被静态子站中间件直接接管，
+  根本不过 astro 路由。
+- **源文件也得挡**：vite 还有 `/@fs/`、`/src/…`、`/public/…` 三条直达文件的
+  路——未登录本来能整篇读到 `src/content/vault/<id>/index.mdx`。
+  `astro.config.mjs` 的 `secureFsDeny` 里点名了这两个挂载目录。
+- **方法不设限**：vite 的静态中间件不挑方法，只放行 GET/HEAD 的话一个
+  `POST /vault-static/<slug>/index.html` 就能原样取走私密内容。
+- **防漏门禁**：`scripts/check-vault-leak.mjs`（已挂进 `pnpm check`）以未
+  登录身份真抓一遍站点，断言零 vault 链接、零私密搜索记录。规则漏一处就是
+  一次泄漏，靠人眼保证不住。站点没跑时自动跳过（公开 CI 本来就没有 vault）。
+- 公开站不受影响：它压根不 clone vault，那半边由 `check-privacy.mjs` 守着。
 
 ## Skills
 

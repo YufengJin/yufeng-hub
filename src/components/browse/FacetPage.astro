@@ -13,6 +13,7 @@ import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
 import BrowseLayout from '../../layouts/BrowseLayout.astro';
 import { cardOf, facetBaseFor, facetsOf, localized, subLocaleOf, type FacetDim } from '../../lib/display';
 import { LOCALES, UI, type Locale } from '../../lib/i18n';
+import { isPrivate } from '../../lib/private';
 import { getWikiUnits, type ResolvedNote } from '../../lib/taxonomy';
 import type { DomainDef, KindDef, StatusDef } from '../../content/notes/_meta/taxonomy';
 
@@ -32,8 +33,11 @@ const b = t.browse;
 const sub = subLocaleOf(locale);
 
 const units = await getWikiUnits(locale);
+// 计数是从整个集合派生的元数据，和标签云一样会泄漏私密笔记的存在
+const publicUnits = units.filter((u) => !isPrivate(u.id));
+const publicNotes = notes.filter((n) => !isPrivate(n.id));
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
-const facets = facetsOf(units, locale);
+const facets = facetsOf(publicUnits, locale);
 
 const d = def && dim !== 'tag' ? localized(dim, def, locale) : undefined;
 const dSub = def && dim !== 'tag' ? localized(dim, def, sub) : undefined;
@@ -73,8 +77,8 @@ const kickerSub = {
 const title = d && dSub ? `${d.label} · ${dSub.label}` : `#${tag}`;
 const heading = d ? d.label : `#${tag}`;
 const headingSub = dSub?.label;
-const description = d ? b.facetDesc(d.desc, notes.length) : b.tagDesc(tag ?? '', notes.length);
-const lede = d ? (dim === 'domain' ? b.domainLede(d.desc, notes.length) : b.facetLede(d.desc, notes.length)) : b.tagLede(notes.length);
+const description = d ? b.facetDesc(d.desc, publicNotes.length) : b.tagDesc(tag ?? '', publicNotes.length);
+const lede = d ? (dim === 'domain' ? b.domainLede(d.desc, publicNotes.length) : b.facetLede(d.desc, publicNotes.length)) : b.tagLede(publicNotes.length);
 const tone = dim === 'domain' && def && 'tone' in def ? def.tone.fg : undefined;
 ---
 

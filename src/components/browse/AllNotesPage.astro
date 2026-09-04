@@ -14,6 +14,7 @@ import NoteCard from 'astro-inkstone/components/wiki/NoteCard.astro';
 import BrowseLayout from '../../layouts/BrowseLayout.astro';
 import { browseHrefFor, cardOf, facetBaseFor, facetsOf, localized } from '../../lib/display';
 import { browseAlternates, UI, type Locale } from '../../lib/i18n';
+import { isPrivate } from '../../lib/private';
 import { getWikiUnits, tagIndex } from '../../lib/taxonomy';
 import { DOMAINS, KINDS, STATUSES } from '../../content/notes/_meta/taxonomy';
 
@@ -25,18 +26,23 @@ const b = UI[locale].browse;
 const links = browseHrefFor(locale);
 
 const units = await getWikiUnits(locale);
+// 聚合视图只统计公开笔记：标签云和总数是从整个集合派生出来的**元数据**，
+// 未登录时门禁能剥掉私密卡片，却剥不掉「这个标签存在」「一共 N 篇」——
+// 那两样同样会泄漏私密笔记的存在。卡片列表本身不过滤（登录者照常看见，
+// 未登录由 src/lib/vault-guard.mjs 剥掉），过滤后的实时计数走 data-count。
+const publicUnits = units.filter((u) => !isPrivate(u.id));
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
-const facets = facetsOf(units, locale);
-const allTags = [...tagIndex(units).keys()];
+const facets = facetsOf(publicUnits, locale);
+const allTags = [...tagIndex(publicUnits).keys()];
 const kindDefs = KINDS.filter((k) => units.some((u) => u.kind === k.id)).map((k) => localized('kind', k, locale));
 const domainDefs = DOMAINS.filter((d) => units.some((u) => u.domains.includes(d.id))).map((d) => localized('domain', d, locale));
 const statusDefs = STATUSES.filter((s) => units.some((u) => u.status === s.id)).map((s) => localized('status', s, locale));
 ---
 
-<BrowseLayout title={b.all} description={b.allDesc(units.length)} locale={locale} crumbs={[{ label: b.all }]} alternates={browseAlternates('all/')}>
+<BrowseLayout title={b.all} description={b.allDesc(publicUnits.length)} locale={locale} crumbs={[{ label: b.all }]} alternates={browseAlternates('all/')}>
   <header class="wb-hero">
     <p class="wb-kicker">{b.all} <span class="sep">·</span> {b.allKicker}</p>
-    <h1 class="wb-title">{b.all}<span class="en">{b.allEntries(units.length)}</span></h1>
+    <h1 class="wb-title">{b.all}<span class="en">{b.allEntries(publicUnits.length)}</span></h1>
     <p class="wb-lede">{b.allLede}</p>
   </header>
   <FacetNav

@@ -3,14 +3,14 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "Yufeng's personal hub — a digital garden of notes, papers and a private vault (Astro + astro-inkstone/inkbrush)",
+  "description": "Yufeng's personal hub \u2014 a digital garden of notes, papers and a private vault (Astro + astro-inkstone/inkbrush)",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "postbuild": "node packages/astro-inkbrush/scripts/check-dist.mjs dist --base ${HUB_BASE:-/yufeng-hub} && node scripts/check-privacy.mjs",
     "preview": "astro preview",
     "wiki": "WIKI=1 astro dev",
-    "check": "node scripts/check-content.mjs && node scripts/check-links.mjs && node scripts/check-privacy.mjs"
+    "check": "node scripts/check-content.mjs && node scripts/check-links.mjs && node scripts/check-privacy.mjs && node scripts/check-vault-leak.mjs"
   },
   "engines": {
     "node": ">=22.18.0"
@@ -25,6 +25,7 @@
     "astro-inkstone": "workspace:*",
     "katex": "^0.17.0",
     "mermaid": "^11.16.0",
+    "parse5": "^7.3.0",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
