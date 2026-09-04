@@ -38,9 +38,11 @@ pnpm check          # 内容方言 + wikilink 完整性
 
 - **公开站**：push 到 `yufeng-hub` / `yufeng-wiki` → GitHub Actions 构建
   （clone 公开挂载，**不含 vault**）→ Pages。见 `.github/workflows/deploy.yml`。
-- **私有站**（ws02）：静态构建含 vault，`astro preview` 常驻只绑 tailnet 地址
-  （pm2 进程 `yufeng-hub-preview`）；内容更新跑 `~/yufeng-hub/update-site.sh`，
-  每日 cron 兜底。无编辑机、无 AI——纯网页分享。
+- **私有站**（ws02）：`WIKI=1 astro dev` 常驻只绑 tailnet 地址（pm2 进程
+  `yufeng-hub-wiki`），含 vault，**读写一体**——inkbrush CMS 在同一个地址上
+  提供块编辑、块级提问、段落批注、按批注改稿与发布状态；内容更新跑
+  `~/yufeng-hub/update-site.sh`，每日 cron 兜底。退路是
+  `run-preview.sh`（纯静态只读，和它抢 4321）。
 
 ## 公私边界
 

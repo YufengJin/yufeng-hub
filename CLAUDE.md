@@ -27,11 +27,15 @@
 
 运维脚本（都在 `hub-site/scripts/`，上层留同名软链）：
 
-- `update-site.sh` — 拉全部挂载 + 构建 + 重启私有站。**内容更新后跑它**。
-- `run-preview.sh` — 私有站本体，pm2 进程 `yufeng-hub-preview`，
-  `astro preview` 服务 `dist/`，只绑 tailnet 地址 `100.81.38.119:4321`。
-- `run-wiki.sh` — 编辑机模式（`WIKI=1 astro dev`，带 inkbrush CMS），
-  **和 preview 抢 4321，一次只能起一个**。
+- `run-wiki.sh` — **私有站本体**，pm2 进程 `yufeng-hub-wiki`：
+  `WIKI=1 astro dev` 常驻，带 inkbrush CMS（块编辑 / AI / 批注 / 同步），
+  只绑 tailnet 地址 `100.81.38.119:4321`。读和写是同一个地址。
+- `update-site.sh` — 拉全部挂载 + 过门禁 + 重启私有站。**内容更新后跑它**。
+  内容热更本来就自动，这里的 `pnpm build` 是**公开站的预演关**（公开站用同一套
+  build），不是给私有站产出 dist。
+- `run-preview.sh` — 退路：`astro preview` 服务 `dist/` 的纯静态只读站。
+  **和 wiki 抢 4321，一次只能起一个**；要用它得先
+  `pm2 delete yufeng-hub-wiki`。
 
 ## 必知须知
 
@@ -45,15 +49,22 @@
   `gh workflow run deploy.yml -R YufengJin/yufeng-hub`）。
 - **git**：一律普通 commit + push，永不 force-push；提交信息中文、说清动机。
 - **私有站怎么访问**：`http://chaser-ws02-u:4321/yufeng-hub/`（tailnet 内，
-  MagicDNS 短名/全名/IP 均可；端口与 `/yufeng-hub/` 前缀不能省）。主机名要能
-  用，靠 `run-preview.sh` 里的 `SITE_HOST` 喂给 `vite.preview.allowedHosts`
-  ——Vite 的 Host 头校验对 dev 与 preview 是两套配置，只配 server 的话
-  IP 能开、主机名被挡。加新主机名改那里（逗号分隔）。
-- **别让 astro preview 变孤儿**：`run-preview.sh` 里的
-  `ASTRO_PREVIEW_BACKGROUND=0` 不能删。astro 检测到 agent 环境（`CLAUDECODE`
-  等）会自动 detach 成后台进程，pm2 的前台进程随即退出、被判崩溃并无限重启，
-  而真正在服务的是 pm2 管不到的孤儿。判断健康看一句话：`pm2 pid` 要等于
-  `ss -tlnp | grep 4321` 里的 pid。
+  MagicDNS 短名/全名/IP 均可；端口与 `/yufeng-hub/` 前缀不能省）。**在 ws02
+  本机上短名连不上是正常的**——`/etc/hosts` 把它解析成 127.0.1.1，而服务只绑
+  tailnet 地址；本机自测用 IP 或全名。主机名要能用，靠脚本里的 `SITE_HOST`
+  喂给 Vite 的 `allowedHosts`——Vite 的 Host 头校验对 dev 与 preview 是两套
+  配置，astro.config.mjs 把同一份名单同时喂给两者。加新主机名改脚本
+  （逗号分隔）。
+- **别让 astro 变孤儿**：`run-wiki.sh` 里的 `ASTRO_DEV_BACKGROUND=0`、
+  `run-preview.sh` 里的 `ASTRO_PREVIEW_BACKGROUND=0`，都不能删。astro 检测到
+  agent 环境（`CLAUDECODE` 等，pm2 会继承启动者的环境）会自动 detach 成后台
+  进程，pm2 的前台进程随即退出、被判崩溃并无限重启，而真正在服务的是 pm2
+  管不到的孤儿。判断健康看一句话：`pm2 pid` 要等于 `ss -tlnp | grep 4321`
+  里的 pid。
+- **一个项目只能有一个 astro dev**：astro 7 用 `.astro/` 下的锁文件保证这点，
+  和端口无关。想在 4322 起个测试实例，得先 `astro dev stop`（或
+  `pm2 stop yufeng-hub-wiki`），否则新实例直接报「Another astro dev server is
+  already running」。
 - **模块契约**（加新板块）见 README「模块契约」节。
 - **隐私门禁**：`pnpm check` 与 `pnpm build` 都会跑 `scripts/check-privacy.mjs`。
   它管的是 `.gitignore` 管不到的那半边——私密文件被复制到挂载点之外再提交。
@@ -78,6 +89,27 @@
   写 `part: N` 和 `navLabel`。约束有两条，破了直接构建失败：`part` 必须等于该
   章在 nav 里的**全局**位置（跨 group 连续数），nav 里引用的页面必须真实存在。
   分组只能按顺序切连续段——nav 的顺序就是 part 的顺序，也就是阅读顺序。
+
+## 私有站上的阅读环（inkbrush CMS）
+
+私有站现在是可写的。一篇笔记页上，逐块的工具条给四件事：✎ 改源码、
+✦ 问 Claude（**改写**或**就这一块提问**两个页签）、💬 写批注、⟲ 修订史回滚。
+读完之后，右下角 💬 面板列出全篇批注，一个「✦ 按批注改稿」把它们**一次性**
+交给 Claude 改全文——结果照样过 `pnpm check` 那套构建关、入修订账、
+按仓库 autocommit + autopush。批注锚在块的源码上而不是行号，笔记变长会自动
+跟随；原文被改掉就标成「原文已不在」并在改稿时跳过。
+
+- **批注不是内容**：存在 `hub-site/.wiki/data/annotations/`（gitignored），
+  只在这台机器上，永远不进任何内容仓。
+- **两个内容仓各提交各的**：inkbrush 配了 `content.mounts`
+  （`vault/` → `src/content/vault`），所以改 vault 笔记提交进 yufeng-vault，
+  改公开笔记提交进 yufeng-wiki，翻译镜像也留在自己那棵树里
+  （`vault/en/x`，不会变成 `en/vault/x`）。
+- **发布状态**：浮钮上方那枚药丸报「有几个提交没推上去 / 上次推送失败没有」，
+  点开可以手动推。autopush 是发完就返回的，失败本来只进服务端日志。
+- `inkbrush.config.ts` 是**一机一份、gitignored** 的：换机器要照
+  `packages/astro-inkbrush/inkbrush.config.example.ts` 重写一份，别忘了
+  `content.mounts` 那段，否则 vault 笔记在 CMS 里打不开。
 
 ## Skills
 
