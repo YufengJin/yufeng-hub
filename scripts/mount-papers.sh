@@ -38,4 +38,13 @@ for m in "$SRC"/*/meta.json; do
   rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$d/" "public/papers/$slug/"
   n=$((n + 1))
 done
+# the podcast playlist page (podcast/index.html + episodes.json + feed.xml) is a
+# generated sibling of the posters, not a poster itself (no meta.json), so the
+# loop above skips it; stage it when the source has it, drop it when it doesn't
+if [ -f "$SRC/podcast/index.html" ]; then
+  rsync -a --delete --exclude '.DS_Store' "$SRC/podcast/" public/papers/podcast/
+  echo "mount-papers: staged podcast/ playlist page"
+else
+  rm -rf public/papers/podcast
+fi
 echo "mount-papers: staged $n posters into public/papers/"

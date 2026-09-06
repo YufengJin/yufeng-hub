@@ -32,6 +32,11 @@ const coverOf = (slug: string): string | null => {
   return first ? href(`papers/${slug}/img/${first}`) : null;
 };
 
+/** podcast/ is staged by mount-papers.sh alongside the posters; absent = no link */
+const hasPodcastPage = existsSync('public/papers/podcast/index.html');
+const hasPodcast = (slug: string): boolean => existsSync(`public/papers/${slug}/podcast.mp3`);
+const podcastCount = papers.filter((p) => hasPodcast(p.slug)).length;
+
 const T = {
   zh: {
     title: '论文墙',
@@ -41,6 +46,7 @@ const T = {
     sub: `每读一篇论文，产出一张中文图文海报。${papers.length} 篇，全部在这里。`,
     crumb: '论文墙',
     empty: '本次构建没有挂载论文数据。',
+    podcast: `🎧 播客 ${podcastCount} 集 · 大白话讲论文，可连播`,
   },
   en: {
     title: 'Paper wall',
@@ -50,6 +56,7 @@ const T = {
     sub: `Every paper I read becomes a Chinese poster digest. All ${papers.length} of them live here.`,
     crumb: 'Paper wall',
     empty: 'This build has no paper data mounted.',
+    podcast: `🎧 Podcast · ${podcastCount} episodes (Chinese), plays through in order`,
   },
 }[locale];
 
@@ -70,6 +77,11 @@ const alternates: Alternate[] = [
     <p class="pw-kicker">{T.kicker}</p>
     <h1 class="pw-title">{T.heading}</h1>
     <p class="pw-sub">{T.sub}</p>
+    {hasPodcastPage && podcastCount > 0 && (
+      <p class="pw-podcast">
+        <a href={href('papers/podcast/')}>{T.podcast}</a>
+      </p>
+    )}
   </header>
 
   {papers.length === 0 && <p class="pw-empty">{T.empty}</p>}
@@ -94,6 +106,7 @@ const alternates: Alternate[] = [
                 <span class="pw-meta">
                   <span>{p.date ?? ''}</span>
                   {p.arxiv_id && <span class="pw-arxiv">arXiv:{p.arxiv_id}</span>}
+                  {hasPodcast(p.slug) && <span class="pw-pod" title="有播客 / has podcast">🎧</span>}
                 </span>
                 <span class="pw-name">{p.title_zh ?? p.title ?? p.title_en ?? p.slug}</span>
                 {p.title_en && p.title_en !== (p.title_zh ?? p.title) && <span class="pw-name-en">{p.title_en}</span>}
@@ -124,6 +137,24 @@ const alternates: Alternate[] = [
     letter-spacing: -0.025em;
     color: var(--wb-text, var(--color-ink));
     margin: 0 0 14px;
+  }
+  .pw-podcast {
+    margin: 14px 0 0;
+    font: 500 15px/1.5 var(--font-ui);
+  }
+  .pw-podcast a {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid var(--wb-border, var(--color-border));
+    border-radius: 999px;
+    color: var(--wb-text, var(--color-ink));
+    text-decoration: none;
+  }
+  .pw-podcast a:hover {
+    background: var(--wb-surface-2, var(--color-surface-2, rgba(0, 0, 0, 0.04)));
+  }
+  .pw-pod {
+    font-size: 12px;
   }
   .pw-sub {
     font: 400 clamp(16px, 2.2vw, 21px) / 1.5 var(--font-ui);
