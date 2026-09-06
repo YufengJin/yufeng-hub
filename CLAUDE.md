@@ -69,6 +69,15 @@
   和端口无关。想在 4322 起个测试实例，得先 `astro dev stop`（或
   `pm2 stop yufeng-hub-wiki`），否则新实例直接报「Another astro dev server is
   already running」。
+- **inkbrush 子模块的指针别乱动**：`packages/astro-inkbrush` 的远端是
+  **上游** `ventusff/astro-inkbrush`，本机账号对它**只有读权限**
+  （`gh api repos/ventusff/astro-inkbrush` → `push: false`）。所以壳仓库里
+  记录的指针**只能是上游已有的提交**；指向一个只存在于本地的提交，公开 CI
+  会在 checkout 阶段就挂掉（`upload-pack: not our ref …`，2026-09-06 踩过）。
+  本机对 inkbrush 的改动提交在本地分支 `ws02-ai` 上，私有站跑的就是这份
+  工作区，不受影响；壳仓库的指针停在上游提交。公开构建不挂 CMS，用哪一版
+  inkbrush 都一样。要让这些改动真正进版本，得先把 inkbrush fork 到自己账号
+  下、把子模块 URL 改过去——那是另一件事，别顺手做。
 - **模块契约**（加新板块）见 README「模块契约」节。
 - **隐私门禁**：`pnpm check` 与 `pnpm build` 都会跑 `scripts/check-privacy.mjs`。
   它管的是 `.gitignore` 管不到的那半边——私密文件被复制到挂载点之外再提交。
