@@ -33,12 +33,12 @@ ls -la ~/yufeng-hub/inbox/
 
 ### 论文 → yufeng-papers（模块自带流水线）
 
-1. 把该条目移入 `~/yufeng-hub/pages/yufeng-papers/_src/_inbox/`。
-2. 先 Read `~/yufeng-hub/pages/yufeng-papers/.claude/skills/paper-notes/SKILL.md`
+1. 把该条目移入 `~/yufeng-hub/pages/paper-snapshots/_src/_inbox/`。
+2. 先 Read `~/yufeng-hub/pages/paper-snapshots/.claude/skills/paper-notes/SKILL.md`
    并严格遵循（含 per-paper 子 agent 要先读 paper-poster 规范、路径绝对化、
    发布前 meta.json 校验等全部纪律）。
 3. 流水线跑完（海报落地 + `publish_to_site.sh` + 索引重建）后：
-   `git -C ~/yufeng-hub/pages/yufeng-papers` add/commit/push。
+   `git -C ~/yufeng-hub/pages/paper-snapshots` add/commit/push。
 
 ### 公开笔记 → yufeng-wiki
 

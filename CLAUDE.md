@@ -17,7 +17,8 @@
 │   └── public/vault-static/   # ← mount-vault-static.sh 装配的私密静态站（勿手改，
 │                              #    源在 vault 仓库各条目的 site/ 目录；公开 CI 无 vault
 │                              #    挂载自动为空，隐私由构建方式保证）
-├── pages/yufeng-papers/       # 论文墙模块仓库（海报流水线 + _src 工作目录 + 项目 skill）
+├── pages/paper-snapshots/     # 论文墙模块仓库 yufeng-papers（目录名沿用旧名；海报流水线
+│                              #    + _src 工作目录 + 项目 skill；update-site.sh 从这里挂载）
 ├── yufeng-obsidian/           # 私人 Obsidian vault（独立 git）
 ├── inbox/                     # 统一收件箱：各机器投递的草稿（见 inbox-triage skill）
 ├── update-site.sh             # ↓ 三个都是软链 → hub-site/scripts/（本体随仓库版本化，
@@ -28,7 +29,8 @@
 运维脚本（都在 `hub-site/scripts/`，上层留同名软链）：
 
 - `run-wiki.sh` — **私有站本体**，pm2 进程 `yufeng-hub-wiki`：
-  `WIKI=1 astro dev` 常驻，带 inkbrush CMS（块编辑 / AI / 批注 / 同步），
+  `WIKI=1 astro dev` 常驻，带 inkbrush CMS（块编辑 / 批注 / 评论 / 同步；
+  AI 与修订史都关着，见下），
   只绑 tailnet 地址 `100.81.38.119:4321`。读和写是同一个地址。
 - `update-site.sh` — 拉全部挂载 + 过门禁 + 重启私有站。**内容更新后跑它**。
   内容热更本来就自动，这里的 `pnpm build` 是**公开站的预演关**（公开站用同一套
@@ -92,12 +94,27 @@
 
 ## 私有站上的阅读环（inkbrush CMS）
 
-私有站现在是可写的。一篇笔记页上，逐块的工具条给四件事：✎ 改源码、
-✦ 问 Claude（**改写**或**就这一块提问**两个页签）、💬 写批注、⟲ 修订史回滚。
-读完之后，右下角 💬 面板列出全篇批注，一个「✦ 按批注改稿」把它们**一次性**
-交给 Claude 改全文——结果照样过 `pnpm check` 那套构建关、入修订账、
-按仓库 autocommit + autopush。批注锚在块的源码上而不是行号，笔记变长会自动
-跟随；原文被改掉就标成「原文已不在」并在改稿时跳过。
+私有站是可写的。一篇笔记页上，逐块的工具条给两件事：✎ 改源码、💬 写批注；
+读完之后 💬 面板列出全篇批注，页尾有评论区。批注锚在块的源码上而不是行号，
+笔记变长会自动跟随；原文被改掉就标成「原文已不在」。
+
+**站上没有 AI，也没有版本操作**——这是刻意的，别加回来：
+
+- **AI 不嵌进站点**。`inkbrush.config.ts` 里 `ai: false`：四条 `/claude/*`
+  路由 404，`/me` 报 `ai:'off'`，助手面板、「按批注改稿」都不挂载。代码还在
+  包里（`chat-panel.ts`、`server/claude.ts` 等），只是不加载。
+- **AI 的用法是复制出去谈**：每篇笔记正文上方有「复制全文」键，复制的是
+  整个 `.mdx` 源文件（含 frontmatter），公开站、私有站、登没登录都有；论文
+  海报顶栏也有同样的「复制全文」，复制当前语言的海报全文 + 标题 + arXiv 链接
+  + 海报 URL。把它贴给 codex / claude 讨论，回来在站上写批注或评论。笔记页
+  的按键在 `NoteLayout.astro`（源码放在 `<template data-note-source>` 里，
+  点击逻辑在 `Base.astro` 和代码块复制共用一个 handler）；海报的在论文墙仓库
+  `pipeline/chrome_assets.py`（`copybtn_html` + `COPY_JS`），随
+  `inject_poster_chrome.py` 注进每张海报。
+- **站上永远是最新版，不做版本控制**。`history: false`：⟲ 块级修订史不再
+  出现，`/revisions`、`/revert` 404；git 版本菜单（⎇ `/versions` `/version`
+  `/restore`）已整个删掉。修订账本 `.wiki/data/revisions.ndjson` 照常追加
+  ——它是审计记录，不是给人用的界面。要回滚去内容仓用 git。
 
 - **批注不是内容**：存在 `hub-site/.wiki/data/annotations/`（gitignored），
   只在这台机器上，永远不进任何内容仓。
@@ -122,7 +139,7 @@
   （名字在册中唯一时才行）。密码 scrypt 存储，明文不落任何文件；连错 5 次
   锁 15 分钟（按账号和来源地址两路计数）。
 - **三级角色**，`roles` 的顺序就是权限高低：
-  - `reader` —— 登录进来只能读（**包括私密 vault**），改稿 / AI / 批注 /
+  - `reader` —— 登录进来只能读（**包括私密 vault**），改稿 / 批注 /
     评论 / 同步 / 分享一律拒绝，而且这些入口在界面上直接不显示。
   - `editor` —— 能写。
   - `admin` —— 还能管账号：加人、改角色、设/重置/清除别人的密码。
@@ -166,6 +183,6 @@
 - `inbox-triage` — 处理 `~/yufeng-hub/inbox/` 的统一收件箱：自动分拣到
   wiki / vault / 论文墙 / obsidian，产出、质检、提交、刷新站点。入口技能，
   「整理 inbox / update hub / 收件箱清一下」都走它。
-- 海报单篇生产规范住在模块仓库：`pages/yufeng-papers/.claude/skills/`
+- 海报单篇生产规范住在模块仓库：`pages/paper-snapshots/.claude/skills/`
   （paper-notes 编排 + paper-poster 单篇规范）——生产内幕跟着流水线走，
   编排入口在本仓库。

@@ -227,21 +227,65 @@ const playground = Boolean(import.meta.env.PLAYGROUND ?? process.env.PLAYGROUND)
           copyStatus.textContent = msg;
         }, 30);
       };
-      document.addEventListener('click', (ev) => {
-        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.code-copy');
-        if (!btn) return;
-        const pre = btn.closest('.code-frame')?.querySelector('pre');
-        if (!pre) return;
-        const copyFailed = (): void => announce(copyStatus?.dataset['fail'] ?? '');
-        if (!navigator.clipboard) {
-          copyFailed(); // insecure context: no clipboard API at all
-          return;
+      // Two copy controls share the handler: a code frame's button copies
+      // its <pre>; the note column's "copy source" copies the whole file
+      // carried in the <template> beside it (NoteLayout). Each button names
+      // its own success line in data-done; the failure line is shared.
+      const copyPayload = (btn: HTMLButtonElement): string | null => {
+        if (btn.classList.contains('copy-source')) {
+          const tpl = btn.parentElement?.querySelector<HTMLTemplateElement>('template[data-note-source]');
+          return tpl ? tpl.content.textContent : null;
         }
-        navigator.clipboard.writeText(pre.innerText).then(() => {
-          btn.classList.add('is-done');
-          announce(copyStatus?.dataset['done'] ?? '');
-          setTimeout(() => btn.classList.remove('is-done'), 1600);
-        }, copyFailed);
+        const pre = btn.closest('.code-frame')?.querySelector('pre');
+        return pre ? pre.innerText : null;
+      };
+      // The Clipboard API exists only in a secure context. The private site
+      // is plain http on a tailnet address, so there it is undefined — and a
+      // copy button that only works on the public https site would fail
+      // exactly where it is needed. The legacy execCommand path still works
+      // on http in every browser: a throwaway textarea, selected and copied.
+      const writeClipboard = async (text: string): Promise<boolean> => {
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch {
+            /* permission denied — try the legacy path below */
+          }
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.setAttribute('aria-hidden', 'true');
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+        document.body.append(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch {
+          ok = false;
+        }
+        ta.remove();
+        return ok;
+      };
+      document.addEventListener('click', (ev) => {
+        const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.code-copy, .copy-source');
+        if (!btn) return;
+        const text = copyPayload(btn);
+        if (text === null) return;
+        void writeClipboard(text).then((ok) => {
+          // the outcome is shown on the button itself (label swap) and read
+          // out through the status line — failure included, so a button that
+          // did nothing never looks like one that worked
+          const state = ok ? 'is-done' : 'is-fail';
+          btn.classList.remove('is-done', 'is-fail');
+          btn.classList.add(state);
+          announce((ok ? btn.dataset['done'] ?? copyStatus?.dataset['done'] : copyStatus?.dataset['fail']) ?? '');
+          setTimeout(() => btn.classList.remove(state), ok ? 1600 : 2400);
+        });
       });
 
       // ---- mermaid: only pages that carry a .mermaid block pay for the

@@ -12,6 +12,8 @@
  * frontmatter contributes the hub's `nav` order and display strings (title,
  * brand, subtitle, navLabel), nothing more.
  */
+import { readFileSync } from 'node:fs';
+
 import { getCollection, render } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
 
@@ -220,6 +222,13 @@ const index = backlinkBuilder.build(toDocs(notes));
 const backlinks = index.inbound.get(entry.id) ?? [];
 const graph = index.localGraph(entry.id, (id) => byId.get(id)?.data.title ?? id);
 
+/* ---------- the note's own bytes, for the "copy source" control ----------
+   The whole file — frontmatter included — as it sits in the content repo:
+   what a reader pastes into an external assistant is exactly what an editor
+   would open, so any suggestion maps back onto the file line for line.
+   entry.body would drop the frontmatter (title, description, taxonomy). */
+const source = entry.filePath ? readFileSync(entry.filePath, 'utf8') : (entry.body ?? '');
+
 /* ---------- sidebar brand: the hub's for chapters, the note's own otherwise ---------- */
 const brandEntry = hubEntry ?? entry;
 const brand = brandEntry.data.brand ?? brandEntry.data.title;
@@ -244,6 +253,7 @@ const brandHref = hub ? hub.hubHref : routeTo(entry.id);
   hubPage={hubPage}
   backlinks={backlinks}
   graph={graph}
+  source={source}
 >
   <Content partLabel={hubPage?.crumbLabel} toc={toc} />
   {

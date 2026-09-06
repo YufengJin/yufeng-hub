@@ -11,7 +11,8 @@
  *
  * 站点没跑就跳过（公开 CI 上本来就没有私有站，也没有 vault 可漏）。
  */
-import { argv, exit } from 'node:process';
+import { request } from 'node:http';
+import { exit } from 'node:process';
 
 const BASE = process.env.HUB_BASE ?? '/yufeng-hub';
 const ORIGIN = process.env.WIKI_ORIGIN ?? 'http://100.81.38.119:4321';
@@ -19,15 +20,56 @@ const ROOT = `${ORIGIN}${BASE.replace(/\/$/, '')}`;
 
 /** 未登录必须看不到任何 vault 痕迹的页面 */
 const PAGES = ['/', '/all/', '/en/', '/papers/'];
-/** 这些整页都不该给 */
-const BLOCKED = ['/vault/', '/vault/rlinf-learning/', '/vault-static/rlinf-learning/'];
+/** 这些整页都不该给。带点段的写法是同一页的别名——vite/astro 会折叠
+ *  `.` 与 `..`，门禁若只看字面就被绕过（修过一次的真漏洞） */
+const BLOCKED = [
+  '/vault/',
+  '/vault/rlinf-learning/',
+  '/vault-static/rlinf-learning/',
+  '/./vault/rlinf-learning/',
+  '/en/../vault/rlinf-learning/',
+  '/./vault-static/rlinf-learning/index.html',
+  '/vault/rlinf-learning/index.html',
+];
 
 const failures = [];
 
-/** @param {string} path */
-async function get(path) {
-  const res = await fetch(`${ROOT}${path}`, { redirect: 'manual', headers: { cookie: '' } });
-  return { status: res.status, location: res.headers.get('location'), body: await res.text() };
+/**
+ * 原样发请求：fetch 会先把 URL 里的点段折叠掉，`/./vault/` 到不了服务器，
+ * 探不出门禁有没有自己折叠；所以直接用 node:http 按字面发。
+ * @param {string} path
+ * @param {string} [method]
+ * @returns {Promise<{ status: number, location: string | null, body: string }>}
+ */
+function get(path, method = 'GET') {
+  const origin = new URL(ORIGIN);
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        host: origin.hostname,
+        port: origin.port || 80,
+        method,
+        path: `${BASE.replace(/\/$/, '')}${path}`,
+        // a fresh socket per request: connection reuse across these probes
+        // can leave one response's bytes in front of the next's status line
+        agent: false,
+        headers: { cookie: '', connection: 'close', ...(method === 'POST' ? { 'content-length': '0' } : {}) },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            location: res.headers.location ?? null,
+            body: Buffer.concat(chunks).toString('utf8'),
+          }),
+        );
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
 }
 
 /** 一段 HTML 里指向 vault 的链接 */
@@ -52,6 +94,15 @@ for (const path of BLOCKED) {
   }
 }
 
+// 1b. 写方法不是后门：astro dev 对方法不挑，POST 一个公开页会把整页
+//     原样吐回来（修过一次的真漏洞）——未登录的 POST 要么 405 要么照样剥
+for (const path of PAGES) {
+  const { status, body } = await get(path, 'POST');
+  if (status === 200 && vaultLinks(body).length) {
+    failures.push(`POST ${path} 未登录时返回了带 vault 链接的整页（${vaultLinks(body).length} 个）`);
+  }
+}
+
 // 2. 公开页面里不得出现 vault 链接
 for (const path of PAGES) {
   const { status, body } = await get(path);
@@ -63,6 +114,37 @@ for (const path of PAGES) {
   if (links.length) {
     failures.push(`${path} 泄漏了 ${links.length} 个 vault 链接，例如 ${links.slice(0, 3).join(' , ')}`);
   }
+}
+
+// 2b. 笔记页的「复制全文」源码模板里不得提到 vault/（源码里的 [[vault/x]]
+//     不是链接，剥链接剥不到它；门禁会把整个控件拿掉）。抽 /all/ 里前几篇
+//     公开笔记来验，再加一篇明确提到 vault 的（若有）
+{
+  const { body } = await get('/all/');
+  const notes = [...new Set([...body.matchAll(/href="([^"]+)"/g)].map((m) => m[1]))]
+    .filter((h) => h.startsWith(`${BASE}/`) && !/\/(?:vault|en|all|tag|kind|domain|status|papers|search)\b/.test(h.slice(BASE.length)))
+    .map((h) => h.slice(BASE.length))
+    .filter((h) => h.endsWith('/') && h.split('/').length <= 4)
+    .slice(0, 5);
+  for (const path of notes) {
+    const { status, body: page } = await get(path);
+    if (status !== 200) continue;
+    const tpl = /<template data-note-source>([\s\S]*?)<\/template>/.exec(page);
+    if (tpl && /\bvault\//.test(tpl[1])) {
+      failures.push(`${path} 的复制全文源码里提到了 vault/（未登录时应连控件一起去掉）`);
+    }
+  }
+}
+
+// 2c. CMS 接口：清单里不得有 vault 笔记，指向 vault 的接口未登录必须拒绝
+//     （修过一次的真漏洞：/api/wiki/notes、/meta、/comments 都是公开路由）
+for (const path of [
+  '/api/wiki/notes',
+  '/api/wiki/meta/vault/rlinf-learning',
+  '/api/wiki/comments/vault/rlinf-learning',
+]) {
+  const { status } = await get(path);
+  if (status === 200) failures.push(`${path} 未登录时返回 200（应当拒绝）`);
 }
 
 // 3. 搜索索引里不得有私密记录

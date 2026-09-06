@@ -14,7 +14,7 @@ clone 挂进 gitignored 目录——内容提交频繁，不该淹没壳仓库�
 | 挂载点 | 仓库 | 可见性 | 角色 |
 |---|---|---|---|
 | `packages/astro-inkstone` | `ventusff/astro-inkstone` | 公开 | 外观：token、内容样式、组件、管线 preset |
-| `packages/astro-inkbrush` | `ventusff/astro-inkbrush` | 公开 | 编辑机：块编辑、修订、AI、Obsidian inbox |
+| `packages/astro-inkbrush` | `ventusff/astro-inkbrush` | 公开 | 编辑机：块编辑、批注、评论、Obsidian inbox（AI 与修订史以配置关掉） |
 | `src/content/notes` | `YufengJin/yufeng-wiki` | **公开** | 笔记正文（zh 默认 + en 镜像）+ `_meta` 注册表 |
 | `src/content/vault` | `YufengJin/yufeng-vault` | **私有** | 私密半区——公开 CI 不 clone，`/vault/` 整个命名空间在公开站上不存在 |
 | `public/papers` | `YufengJin/yufeng-papers`（`scripts/mount-papers.sh` 装配海报目录） | 公开 | 论文墙模块：海报页整站托管在本站 `/papers/<slug>/`，同一棵树的 meta.json 喂索引卡 |

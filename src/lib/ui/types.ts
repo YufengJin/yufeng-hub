@@ -56,6 +56,11 @@ export interface UIStrings {
   close: string;
   copied: string;
   copyFailed: string;
+  /** the note page's "copy the whole source" control: label, tooltip, the
+   *  status line read out once the clipboard has it */
+  copySource: string;
+  copySourceTitle: string;
+  sourceCopied: string;
   theme: string;
   menu: string;
   skip: string;

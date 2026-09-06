@@ -391,8 +391,66 @@ html[lang='en'] .note-card[data-id*='/vault/'] .head::before {
   background: var(--color-accent-soft);
 }
 
+/* ------------------------------------------- the "copy source" control ----
+   A quiet ghost button at the head of the column: the hand-off to an
+   external assistant (no AI is embedded in the site). The label swaps to
+   the success line for a moment after the clipboard has the text. */
+.note-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -12px 0 10px;
+}
+.copy-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-soft);
+  font: 500 12.5px/1 var(--font-ui);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.copy-source:hover {
+  color: var(--color-ink);
+  border-color: var(--color-ink-faint);
+  background: var(--color-bg-soft);
+}
+.copy-source .done,
+.copy-source .fail {
+  display: none;
+}
+.copy-source.is-done {
+  color: var(--color-accent-text);
+  border-color: var(--color-accent-soft);
+  background: var(--color-accent-soft);
+}
+.copy-source.is-done .lbl {
+  display: none;
+}
+.copy-source.is-done .done {
+  display: inline;
+}
+.copy-source.is-fail {
+  color: #b45309;
+  border-color: #b45309;
+  background: var(--color-warn-bg);
+}
+.copy-source.is-fail .lbl {
+  display: none;
+}
+.copy-source.is-fail .fail {
+  display: inline;
+}
+
 @media print {
-  .nav-toggle {
+  .nav-toggle,
+  .note-tools {
     display: none;
   }
 }

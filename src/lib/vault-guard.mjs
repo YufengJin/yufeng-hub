@@ -1,4 +1,6 @@
 // @ts-check
+import { posix } from 'node:path';
+
 import { parse, serialize } from 'parse5';
 
 /**
@@ -16,6 +18,11 @@ import { parse, serialize } from 'parse5';
  * 列表项整个消失**。它同时覆盖了 NoteCard（li[data-id^=vault/]）、首页
  * 「最近更新」那种裸 li、以及导航里的 vault 入口。不在列表里的链接
  * （正文里指向私密笔记的 wikilink）降级成纯文本，字还在，路没了。
+ *
+ * 外加一条给「复制全文」的：笔记页把整个 .mdx 源码放在
+ * `<template data-note-source>` 里，源码里的 `[[vault/x]]` 不是 <a>，剥链接
+ * 剥不到它。凡源码提到 `vault/` 的页面，未登录时整个复制控件（模板 + 按钮）
+ * 一起拿掉——宁可没得复制，不给私密 slug 露头。
  */
 
 /** 私密命名空间：id 或路径里的 vault 段（与 src/lib/private.ts 同一个事实） */
@@ -48,14 +55,54 @@ export function hrefIsPrivate(href, base, locales = []) {
   return isPrivatePath(path, locales);
 }
 
-/** 搜索索引里剔掉私密记录（id 以 vault/ 或 <locale>/vault/ 开头的） */
+/**
+ * 从一份 JSON 里剔掉私密记录（id 以 vault/ 或 <locale>/vault/ 开头的）。
+ * 认两种形状：搜索索引是一个数组；CMS 的 `/api/wiki/notes` 是 `{ notes: [...] }`
+ * （给 [[ 自动补全和链接解析用的全站清单，公开路由，vault 笔记也在里面）。
+ */
 export function stripPrivateRecords(json, locales = []) {
-  if (!Array.isArray(json)) return json;
-  return json.filter((rec) => {
+  const keep = (rec) => {
     const id = rec && typeof rec === 'object' ? String(rec.id ?? '') : '';
     if (id === '') return true;
     return !isPrivatePath(`/${id}`, locales);
-  });
+  };
+  if (Array.isArray(json)) return json.filter(keep);
+  if (json && typeof json === 'object' && Array.isArray(json.notes)) {
+    return { ...json, notes: json.notes.filter(keep) };
+  }
+  return json;
+}
+
+/**
+ * CMS 接口里未登录不该看到的那些。两类都直接挡（401），不改写响应体——
+ * 改写 API 的 body 会破坏 HTTP 分帧（status line 丢失），得不偿失。
+ *
+ *  - 指向私密笔记的：`/api/wiki/<route>/<note id>`（meta、block、comments、
+ *    annotations、revisions……id 都在路径尾巴上），id 以 vault/ 开头即私密；
+ *  - 全站清单 `/api/wiki/notes`：它会连标题带 id 交出每一篇私密笔记。这个
+ *    接口只有登录后的自动补全用得到，未登录一律挡。
+ *
+ * @param {string} path 已剥 base 的路径
+ * @param {readonly string[]} locales
+ * @returns {'private' | null}
+ */
+export function privateApi(path, locales = []) {
+  const segs = path.split('/').filter(Boolean);
+  if (segs[0] !== 'api' || segs[1] !== 'wiki') return null;
+  if (segs.length === 3 && segs[2] === 'notes') return 'private';
+  if (segs.length > 3 && isPrivatePath(`/${segs.slice(3).join('/')}`, locales)) return 'private';
+  return null;
+}
+
+/** 源码里对私密命名空间的任何提法：`[[vault/x]]`、`/vault/x/`、`src/content/vault/` */
+const SOURCE_MENTION = /\bvault\//;
+
+/** 一段 parse5 节点树的纯文本（template 的内容在 node.content 里） */
+function textOf(node) {
+  if (!node) return '';
+  if (node.nodeName === '#text') return node.value ?? '';
+  const kids = node.content ? node.content.childNodes : node.childNodes;
+  return (kids ?? []).map(textOf).join('');
 }
 
 /**
@@ -69,7 +116,12 @@ export function stripPrivateRecords(json, locales = []) {
  * dist 门禁会当场拒绝。
  */
 export function stripPrivateHtml(html, base, locales = []) {
-  if (!html.includes(`${base}${VAULT}/`) && !html.includes(`${base}${VAULT}-static/`) && !/\/vault\//.test(html)) {
+  if (
+    !html.includes(`${base}${VAULT}/`) &&
+    !html.includes(`${base}${VAULT}-static/`) &&
+    !/\/vault\//.test(html) &&
+    !SOURCE_MENTION.test(html)
+  ) {
     return { html, emptied: false };
   }
   const cardsBefore = (html.match(/class="note-card"/g) ?? []).length;
@@ -80,6 +132,17 @@ export function stripPrivateHtml(html, base, locales = []) {
   const walk = (node, ancestors) => {
     // 子节点可能被删，所以先拷一份再遍历
     for (const child of [...(node.childNodes ?? [])]) {
+      // 「复制全文」的源码模板：提到 vault/ 就连同它的控件一起拿掉
+      if (child.tagName === 'template' && child.attrs?.some((a) => a.name === 'data-note-source')) {
+        if (SOURCE_MENTION.test(textOf(child))) {
+          const tools = [...ancestors, node]
+            .reverse()
+            .find((n) => n.attrs?.some((a) => a.name === 'class' && /\bnote-tools\b/.test(a.value)));
+          remove(tools ?? child);
+          touched = true;
+        }
+        continue;
+      }
       if (child.tagName === 'a') {
         const href = child.attrs?.find((a) => a.name === 'href')?.value;
         if (hrefIsPrivate(href, base, locales)) {
@@ -123,6 +186,44 @@ export function stripPrivateHtml(html, base, locales = []) {
   return { html: out, emptied: cardsBefore > 0 && cardsAfter === 0 };
 }
 
+/**
+ * 把一次请求的路径规整成门禁要判断的样子：去掉 query，百分号解码，折叠
+ * `.` 与 `..` 段，剥掉 base 前缀。
+ *
+ * 为什么必须折叠点段：vite 与 astro 自己会折叠，`/./vault/x/` 和
+ * `/en/../vault/x/` 打到的都是 `/vault/x/`；门禁若只看字面就被绕过——
+ * 实测未登录用这两种写法能整页拿到私密笔记。解码做两遍，双重编码的
+ * `%252e%252e` 也现形。返回的 `variants` 是每一步的形态（折叠前后、剥
+ * base 前后），私密判断对它们**任一**成立即挡；`path` 是折叠并剥了 base
+ * 的那一个，给路由类判断（是不是页面、是不是索引）用。解码失败返回 null
+ * ——畸形路径不放行。
+ *
+ * @param {string} rawUrl
+ * @param {string} base 以 / 结尾的 base（'/' 表示无前缀）
+ * @returns {{ path: string, variants: string[] } | null}
+ */
+export function requestPath(rawUrl, base) {
+  const cut = rawUrl.search(/[?#]/);
+  let p = cut === -1 ? rawUrl : rawUrl.slice(0, cut);
+  const stripBase = (/** @type {string} */ x) =>
+    base !== '/' && x.startsWith(base) ? x.slice(base.length - 1) : x;
+  /** @type {Set<string>} */
+  const variants = new Set();
+  let path = '';
+  try {
+    for (let round = 0; round < 2; round++) {
+      p = decodeURIComponent(p);
+      const norm = posix.normalize(p.startsWith('/') ? p : `/${p}`);
+      for (const v of [p, norm, stripBase(p), stripBase(norm)]) variants.add(v);
+      if (round === 0) path = stripBase(norm);
+      if (!p.includes('%')) break;
+    }
+  } catch {
+    return null;
+  }
+  return { path, variants: [...variants] };
+}
+
 /* ---------------- the dev-server middleware ---------------- */
 
 /** 只缓冲可能是页面的响应；图片、脚本、样式一律直通 */
@@ -136,28 +237,33 @@ function looksLikePage(pathname) {
  * 根本不存在，没有可挡的东西。
  */
 export function vaultGuard({ enabled = true, locales = [] } = {}) {
-  let astroBase = '/';
+  let base = '/';
   return {
     name: 'hub:vault-guard',
     hooks: {
-      /** @param {{ config: any, command: string, updateConfig: (c: any) => void }} ctx */
-      'astro:config:setup': ({ config, command, updateConfig }) => {
-        astroBase = config.base || '/';
-        if (!enabled || command !== 'dev') return;
-        const base = astroBase.endsWith('/') ? astroBase : `${astroBase}/`;
-        updateConfig({ vite: { plugins: [guardPlugin(base, locales)] } });
+      /** @param {{ config: any }} ctx */
+      'astro:config:setup': ({ config }) => {
+        const b = config.base || '/';
+        base = b.endsWith('/') ? b : `${b}/`;
+      },
+      // 装在 astro:server:setup 而不是 vite 插件的 configureServer 里：门禁
+      // 必须排在 inkbrush 的 /api/wiki 中间件**之前**，否则 /api/wiki/notes、
+      // /meta/vault/x 这些公开路由会先把私密 id、标题、评论交给未登录的人
+      // （实测漏过）。inkbrush 也在 astro:server:setup 里挂中间件，而 astro
+      // 按 integrations 顺序跑这个钩子——本 integration 在 astro.config 里
+      // 排在 inkbrush 前面，所以它的中间件先入栈、先执行。vite 插件那条路
+      // 反而排在 inkbrush 之后（实测），挡得住页面却挡不住 API。
+      /** @param {{ server: any }} ctx */
+      'astro:server:setup': ({ server }) => {
+        if (!enabled) return;
+        installGuard(server, base, locales);
       },
     },
   };
 }
 
-/** @param {string} base @param {readonly string[]} locales */
-function guardPlugin(base, locales) {
-  return {
-    name: 'hub:vault-guard',
-    apply: /** @type {const} */ ('serve'),
-    /** @param {any} server */
-    configureServer(server) {
+/** @param {any} server @param {string} base @param {readonly string[]} locales */
+function installGuard(server, base, locales) {
       /** 谁在请求？null = 没有有效会话，或不是本站成员 */
       const identityOf = async (req) => {
         try {
@@ -175,33 +281,46 @@ function guardPlugin(base, locales) {
       server.middlewares.use((req, res, next) => {
         // 方法不设限：vite 的静态中间件不挑方法，只放行 GET/HEAD 的话
         // 一个 POST /vault-static/<slug>/index.html 就能原样取走私密内容。
-        // 只有「改写响应」这件事才限于 GET/HEAD。
         const readOnlyMethod = req.method === 'GET' || req.method === 'HEAD';
-        const url = req.url || '/';
-        const cut = url.search(/[?#]/);
-        const rawPath = cut === -1 ? url : url.slice(0, cut);
-        let path;
-        try {
-          path = decodeURIComponent(rawPath);
-        } catch {
-          return next();
+        const seen = requestPath(req.url || '/', base);
+        if (!seen) {
+          // 解码不了的路径：不知道它指向哪，就不放行
+          res.statusCode = 400;
+          res.setHeader('cache-control', 'no-store');
+          res.end();
+          return;
         }
-        if (base !== '/' && path.startsWith(base)) path = path.slice(base.length - 1);
+        const { path, variants } = seen;
 
         // vite 自己的东西（HMR、模块图、内联资源）不经过门禁
-        if (path.startsWith('/@') || path.startsWith('/node_modules/') || path.startsWith('/api/wiki/')) {
-          return next();
-        }
+        if (path.startsWith('/@') || path.startsWith('/node_modules/')) return next();
+
+        // CMS 接口：几条公开路由（/meta、/comments、/notes）本来会把 vault
+        // 笔记的 id、标题、文件路径交给任何人——实测未登录 /api/wiki/notes
+        // 列出全部 26 篇。指向私密笔记的接口未登录一律 401；清单接口改写。
+        // 其余接口（登录、编辑、同步……）自己有鉴权，照旧放行。
+        const api = variants.map((v) => privateApi(v, locales)).find((k) => k !== null) ?? null;
+        if (path.startsWith('/api/wiki/') && api === null) return next();
 
         const isIndex = path === '/search-index.json';
-        const guarded = isPrivatePath(path, locales) || ((isIndex || looksLikePage(path)) && readOnlyMethod);
+        // 私密与否看路径的每一种形态（折叠点段前后、剥 base 前后）
+        const privatePath = api === null && variants.some((v) => isPrivatePath(v, locales));
+        const guarded = api !== null || privatePath || isIndex || looksLikePage(path);
         if (!guarded) return next();
 
         void identityOf(req).then((identity) => {
           if (identity) return next();
 
+          if (api === 'private') {
+            res.statusCode = 401;
+            res.setHeader('content-type', 'application/json; charset=utf-8');
+            res.setHeader('cache-control', 'no-store');
+            res.end(JSON.stringify({ error: 'Sign in required' }));
+            return;
+          }
+
           // 私密页面：整页不给，送回首页让登录浮层自己弹出来
-          if (isPrivatePath(path, locales)) {
+          if (privatePath) {
             res.statusCode = 302;
             res.setHeader('location', `${base}?needs_login=vault`);
             res.setHeader('cache-control', 'no-store');
@@ -209,8 +328,18 @@ function guardPlugin(base, locales) {
             return;
           }
 
+          // 公开页面 + 写方法：静态页面本来就不接受 POST，而 astro dev 对
+          // 方法不挑，会把整页原样吐回来——实测 POST / 带着 vault 卡片回来。
+          // 改写只做给 GET/HEAD；其余方法不改写也不放行，直接 405。
+          if (!readOnlyMethod) {
+            res.statusCode = 405;
+            res.setHeader('allow', 'GET, HEAD');
+            res.setHeader('cache-control', 'no-store');
+            res.end();
+            return;
+          }
+
           // 其余页面照发，但发出去之前把私密痕迹摘掉
-          if (!readOnlyMethod) return next();
           let emptiedPage = false;
           interceptBody(
             res,
@@ -219,7 +348,9 @@ function guardPlugin(base, locales) {
               try {
                 return Buffer.from(JSON.stringify(stripPrivateRecords(JSON.parse(buf.toString('utf8')), locales)));
               } catch {
-                return buf;
+                // 这是保密边界，解析不了就不能原样放行——那份 JSON 里可能
+                // 正躺着 52 条私密记录。发一个空数组，宁可让搜索没结果。
+                return Buffer.from('[]');
               }
             }
             if (type.includes('html')) {
@@ -233,20 +364,21 @@ function guardPlugin(base, locales) {
             }
             return buf;
             },
-            () => (emptiedPage ? `${base}?needs_login=vault` : null),
+            () => emptiedPage,
+            `${base}?needs_login=vault`,
           );
           next();
         });
       });
-    },
-  };
 }
 
 /**
  * 把一次响应的 body 攒起来，交给 transform 改写后再发。
  * content-length 跟着改；chunked 的响应则保持 chunked。
  */
-function interceptBody(res, transform, redirectIf) {
+function interceptBody(res, transform, shouldBlock, blockedUrl) {
+  /** 改写抛错时记下来：它和"剥空"一样要挡住，不能原样放行 */
+  let failedToStrip = null;
   const chunks = [];
   const write = res.write.bind(res);
   const end = res.end.bind(res);
@@ -300,17 +432,22 @@ function interceptBody(res, transform, redirectIf) {
     let body;
     try {
       body = transform(Buffer.concat(chunks), contentType());
-    } catch {
-      body = Buffer.concat(chunks); // 改写失败就发原样，别把页面弄丢
+    } catch (err) {
+      // 剥离失败时发原样，等于把带 vault 的整页交给未登录的人。保密边界
+      // 只能往关的方向失败：当作"剥空"处理，走和私密页面一样的 302。
+      failedToStrip = err;
+      body = Buffer.alloc(0);
     }
 
     // 剥空的页面不发空白页，改成和私密路径一样的 302。头要自己发全：
     // astro 那次 writeHead 被拦下了，这里不补就没有人发。
-    const to = redirectIf?.();
-    if (to && !res.headersSent) {
+    // 挡住的两种情形：剥空（这一页只有私密内容撑着）和剥离本身出错
+    // （保密边界只能往关的方向失败）。去处是同一个。
+    const blocked = failedToStrip !== null || shouldBlock();
+    if (blocked && !res.headersSent) {
       pendingHead = null;
       writeHead(302, {
-        location: to,
+        location: blockedUrl,
         'cache-control': 'no-store',
         'content-length': '0',
       });
