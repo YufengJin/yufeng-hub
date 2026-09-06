@@ -13,7 +13,8 @@
 │   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git；
 │                              #    与 notes 同属一个 collection，id 打进 vault/
 │                              #    命名空间，写法与版式和公开笔记完全一致）
-│   ├── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers）
+│   ├── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers；
+│                              #    私有仓库，只装配给私有站，公开 CI 不挂）
 │   └── public/vault-static/   # ← mount-vault-static.sh 装配的私密静态站（勿手改，
 │                              #    源在 vault 仓库各条目的 site/ 目录；公开 CI 无 vault
 │                              #    挂载自动为空，隐私由构建方式保证）
@@ -48,7 +49,8 @@
 - **发布链路**：各内容仓 commit+push 后，**私有站**跑 `~/yufeng-hub/update-site.sh`
   立即生效；**公开站**由 GitHub Actions 构建（壳仓库 push 即触发；纯内容更新靠
   每日 03:17 UTC cron 兜底，急了在有 gh 的机器上
-  `gh workflow run deploy.yml -R YufengJin/yufeng-hub`）。
+  `gh workflow run deploy.yml -R YufengJin/yufeng-hub`）。**论文墙不进公开站**，
+  改海报不需要碰这条链路。
 - **git**：一律普通 commit + push，永不 force-push；提交信息中文、说清动机。
 - **私有站怎么访问**：`http://chaser-ws02-u:4321/yufeng-hub/`（tailnet 内，
   MagicDNS 短名/全名/IP 均可；端口与 `/yufeng-hub/` 前缀不能省）。**在 ws02
@@ -70,9 +72,10 @@
 - **模块契约**（加新板块）见 README「模块契约」节。
 - **隐私门禁**：`pnpm check` 与 `pnpm build` 都会跑 `scripts/check-privacy.mjs`。
   它管的是 `.gitignore` 管不到的那半边——私密文件被复制到挂载点之外再提交。
-  两条：壳仓库不得跟踪 `src/content/vault/`、`public/vault-static/` 下的任何
-  文件；没有 vault 挂载时（公开 CI）产物里不得有 `/vault/` 页面、
-  `/vault-static/`、指向它们的链接或搜索索引记录。
+  两条：壳仓库不得跟踪 `src/content/vault/`、`public/vault-static/`、
+  `public/papers/` 下的任何文件；**某个私密命名空间没挂载时**（公开 CI）产物里
+  不得有它的页面目录、指向它的链接、或它的搜索索引记录。vault 与论文墙**各判
+  各的**（一个在位不影响另一个）。
   **私密资产要给笔记用，走 vault 自己的 `site/` 目录**（`mount-vault-static.sh`
   会装配到 `/vault-static/<slug>/`），绝不复制进壳仓库的 `public/`。
 - 笔记方言易错点：
@@ -148,6 +151,31 @@
   也能在自己的面板里改自己的密码（要验旧密码）。
 - **`.wiki/users.json` 是 gitignored 的**，和批注一样只在这台机器上，
   永远不进任何内容仓。里面存的是 scrypt 哈希，不是密码。
+
+## 论文墙只在私有站（2026-09-06 起）
+
+论文墙从公开站撤下来了。`YufengJin/yufeng-papers` 已转为**私有仓库**，公开 CI
+不再 clone 它——和 vault 同一个道理：**隐私由构建材料决定**，没有的字节渲染
+不出来。
+
+- **一个事实，一处判断**：`src/lib/papers.ts` 的 `PAPERS_MOUNTED`
+  （`existsSync('public/papers')`）。挂载不在，则 `/papers/` 与 `/en/papers/`
+  **整条路由不生成**（两个页面是 rest 路由 `[...wall].astro`，`getStaticPaths`
+  返回空数组），导航不出条目、首页不出瓦片、搜索面板没有 papers 域、
+  搜索索引没有记录、papers collection 是空的。
+  **别用 `new URL(..., import.meta.url)` 判断**——Vite 会打包这个模块，
+  `import.meta.url` 指向 chunk，组件里会静默读成 false（踩过：导航没了但
+  索引还剩 676 条）。
+- **未挂载时 loader 要 `store.clear()`**：内容层的数据缓存在 `.astro/`，
+  只是「不加载」的话，曾经挂载过的机器会继续把 676 条海报记录喂进搜索索引。
+  （`notes` 那边自愈——不带 scope 的 glob 会删掉不属于自己的 key。）
+- **公开笔记不得链向 `/papers/`**：链了就是死链，dist 门禁当场拒绝。
+  2026-09-06 已把 `start-here`、`action-tokenization` 两篇（中英四个文件）
+  里的指向清掉，并把「园地由三个仓库组成」改成四个、后两个私有。
+- **私有站上不设登录**：论文墙不进 vault 门禁，tailnet 内谁都能看。
+  这是刻意的选择，和 vault 不同。
+- 验证方式：`mv public/papers` 挪走再 `pnpm build`，产物应当是 143 页
+  （挂载在位是 483 页）且门禁报「未挂载 论文墙」。
 
 ## 私密 vault 的阅读门禁
 

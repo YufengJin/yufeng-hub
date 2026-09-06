@@ -1,6 +1,6 @@
 # yufeng-hub
 
-我的个人 hub——数字园地：笔记、论文墙与私密库。
+我的个人 hub——数字园地：公开笔记，加上只在私有站渲染的私密库与论文墙。
 公开站发布在 **<https://yufengjin.github.io/yufeng-hub/>**，
 编辑机跑在 ws02（tailnet 内网）。
 
@@ -17,7 +17,7 @@ clone 挂进 gitignored 目录——内容提交频繁，不该淹没壳仓库�
 | `packages/astro-inkbrush` | `ventusff/astro-inkbrush` | 公开 | 编辑机：块编辑、批注、评论、Obsidian inbox（AI 与修订史以配置关掉） |
 | `src/content/notes` | `YufengJin/yufeng-wiki` | **公开** | 笔记正文（zh 默认 + en 镜像）+ `_meta` 注册表 |
 | `src/content/vault` | `YufengJin/yufeng-vault` | **私有** | 私密半区——公开 CI 不 clone，`/vault/` 整个命名空间在公开站上不存在 |
-| `public/papers` | `YufengJin/yufeng-papers`（`scripts/mount-papers.sh` 装配海报目录） | 公开 | 论文墙模块：海报页整站托管在本站 `/papers/<slug>/`，同一棵树的 meta.json 喂索引卡 |
+| `public/papers` | `YufengJin/yufeng-papers`（`scripts/mount-papers.sh` 装配海报目录） | **私有** | 论文墙模块：海报页托管在**私有站** `/papers/<slug>/`，同一棵树的 meta.json 喂索引卡。公开 CI 不挂载它，公开站因此没有 `/papers/` 这条路由 |
 
 ## 本地开发（ws02）
 
@@ -83,4 +83,4 @@ store 上），vault 的 id 打进 `vault/` 命名空间（`src/lib/private.ts`�
 3. **一个入口**：hub 里一个 section 页（读该模块的 meta 数据做索引），
    首页加一块瓦片，顶栏视情况加导航链。
 
-现有模块：wiki（笔记）、vault（私密）、papers（论文墙）。
+现有模块：wiki（笔记，公开）、vault（私密笔记）、papers（论文墙，私有——只在私有站渲染）。

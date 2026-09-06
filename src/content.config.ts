@@ -5,6 +5,7 @@ import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 
 import { DOMAIN_IDS, KIND_IDS, STATUS_IDS } from './content/notes/_meta/taxonomy';
+import { PAPERS_MOUNTED } from './lib/papers';
 import { isPrivate, vaultIdOf } from './lib/private';
 
 type Loader = ReturnType<typeof glob>;
@@ -137,15 +138,28 @@ const notes = defineCollection({
 
 /**
  * The paper wall: poster pages staged into `public/papers/<slug>/`
- * (scripts/mount-papers.sh — self-contained static HTML + WebP, published
+ * (scripts/mount-papers.sh — self-contained static HTML + WebP, served
  * verbatim), and this collection reads the same tree's meta.json for the
  * index cards. One mount, both uses.
+ *
+ * The wall is private-site-only: the public CI never stages it, the mount is
+ * absent there and this loader is dropped, so no poster can be rendered,
+ * listed or indexed on the public site (see lib/papers.ts).
  */
-const papersMounted = existsSync(new URL('../public/papers', import.meta.url));
 const papers = defineCollection({
-  loader: papersMounted
+  loader: PAPERS_MOUNTED
     ? glob({ pattern: ['*/meta.json'], base: './public/papers' })
-    : { name: 'papers-absent', load: async () => {} },
+    : {
+        name: 'papers-absent',
+        // clear, not merely "load nothing": the content layer's store is
+        // persisted in .astro/, so a machine that once built WITH the wall
+        // would keep serving its search-index records after the mount is
+        // gone. (The notes collection self-cleans — an unscoped glob drops
+        // every key its own scan did not touch.)
+        load: async ({ store }) => {
+          store.clear();
+        },
+      },
   schema: z.object({
     slug: z.string(),
     title: z.string().optional(),

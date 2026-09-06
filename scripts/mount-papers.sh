@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Stage poster pages from the yufeng-papers repo (formerly paper-snapshots) into public/papers/.
 #
+# PRIVATE-SITE ONLY. yufeng-papers is a PRIVATE repository and the public CI
+# deliberately never runs this script: with no public/papers/ the public build
+# has no paper wall at all — no route, no nav entry, no card, no search record
+# (src/lib/papers.ts). The anonymous clone below therefore only works on a
+# machine whose git credentials can read the private repo; on ws02 the mount
+# always passes PAPERS_SRC and never clones.
+#
 # Poster dir = a top-level dir carrying meta.json (index.html + img/ + meta).
 # The pages are self-contained (relative img/ only; "../" back-link lands on
 # the hub's /papers/ index), so they publish as plain static assets, and the

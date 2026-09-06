@@ -11,6 +11,7 @@ import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { browseHrefFor, localized } from '../../lib/display';
 import { browseAlternates, GITHUB_URL, href, localePrefix, UI, type Locale } from '../../lib/i18n';
+import { PAPERS_MOUNTED } from '../../lib/papers';
 import { getWikiUnits } from '../../lib/taxonomy';
 import { DOMAINS } from '../../content/notes/_meta/taxonomy';
 
@@ -113,7 +114,7 @@ const domainTiles = DOMAINS.map((d) => ({
       <p class="hero-sub">{T.heroSub}</p>
       <div class="ctas">
         <a class="pill solid" href={links.all()}>{T.ctaNotes}</a>
-        <a class="pill ghost" href={href(`${p}papers/`)}>{T.ctaPapers} <span aria-hidden="true">›</span></a>
+        {PAPERS_MOUNTED && <a class="pill ghost" href={href(`${p}papers/`)}>{T.ctaPapers} <span aria-hidden="true">›</span></a>}
       </div>
       <p class="search-hint">{T.searchHint}</p>
     </section>
@@ -144,24 +145,28 @@ const domainTiles = DOMAINS.map((d) => ({
       </ul>
     </section>
 
-    <section class="tile tile-dark">
-      <div class="tile-head">
-        <h2>{T.papersTitle}</h2>
-        <p>{T.papersSub}</p>
-        <a class="tile-link" href={href(`${p}papers/`)}>{T.papersLink} <span aria-hidden="true">›</span></a>
-      </div>
-      <ul class="covers">
-        {
-          covers.map((c) => (
-            <li>
-              <a href={href(`papers/${c.slug}/`)} title={c.title}>
-                <img src={c.cover} alt={c.title} loading="lazy" decoding="async" />
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-    </section>
+    {/* the paper wall lives on the private site only — an unmounted build
+        has no tile, no covers and no link into a route that is not there */}
+    {PAPERS_MOUNTED && (
+      <section class="tile tile-dark">
+        <div class="tile-head">
+          <h2>{T.papersTitle}</h2>
+          <p>{T.papersSub}</p>
+          <a class="tile-link" href={href(`${p}papers/`)}>{T.papersLink} <span aria-hidden="true">›</span></a>
+        </div>
+        <ul class="covers">
+          {
+            covers.map((c) => (
+              <li>
+                <a href={href(`papers/${c.slug}/`)} title={c.title}>
+                  <img src={c.cover} alt={c.title} loading="lazy" decoding="async" />
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    )}
 
     <section class="domains">
       <h2>{T.domainsTitle}</h2>

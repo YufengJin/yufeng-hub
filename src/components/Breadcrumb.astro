@@ -25,6 +25,7 @@
 import LanguageMenu from './LanguageMenu.astro';
 import ThemeToggle from './ThemeToggle.astro';
 import { href, landingRoute, localePrefix, SITE_NAME, UI, type Alternate, type Locale } from '../lib/i18n';
+import { PAPERS_MOUNTED } from '../lib/papers';
 
 interface Crumb {
   label: string;
@@ -75,7 +76,8 @@ const home = landingRoute(locale);
   <span class="spacer" aria-hidden="true"></span>
 
   <a class="nav-link" href={href(`${localePrefix(locale)}all/`)}>{t.navNotes}</a>
-  <a class="nav-link" href={href(`${localePrefix(locale)}papers/`)}>{t.navPapers}</a>
+  {/* the wall is private-site-only: no mount, no route, so no entry */}
+  {PAPERS_MOUNTED && <a class="nav-link" href={href(`${localePrefix(locale)}papers/`)}>{t.navPapers}</a>}
 
   <button class="search-btn" type="button" data-search-open title={t.searchButton} aria-label={t.searchButton}>
     <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">

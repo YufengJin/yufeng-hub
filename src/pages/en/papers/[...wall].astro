@@ -1,0 +1,19 @@
+---
+/**
+ * /en/papers/ — the paper wall, English.
+ *
+ * A rest route rather than a plain page so the wall can cease to EXIST: the
+ * public build stages no `public/papers/`, getStaticPaths yields nothing, and
+ * no /papers/ route is emitted at all. A page that merely rendered "nothing
+ * mounted" would still announce that a paper wall is there to look for.
+ */
+import PapersPage from '../../../components/browse/PapersPage.astro';
+import { PAPERS_MOUNTED } from '../../../lib/papers';
+
+export function getStaticPaths() {
+  // `wall: undefined` is the bare /papers/ path; an empty list is no route
+  return PAPERS_MOUNTED ? [{ params: { wall: undefined } }] : [];
+}
+---
+
+<PapersPage locale="en" />

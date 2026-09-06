@@ -22,6 +22,7 @@ import SearchPalette from 'astro-inkstone/components/SearchPalette.astro';
 import { KINDS } from '../content/notes/_meta/taxonomy';
 import ThemeInit from '../components/ThemeInit.astro';
 import { DEFAULT_LOCALE, href, localeDef, UI, type Alternate, type Locale } from '../lib/i18n';
+import { PAPERS_MOUNTED } from '../lib/papers';
 
 interface Crumb {
   label: string;
@@ -129,7 +130,7 @@ const playground = Boolean(import.meta.env.PLAYGROUND ?? process.env.PLAYGROUND)
       scopes={[
         { id: 'all', label: t.searchScopeAll },
         ...KINDS.map((k) => ({ id: k.id, label: t.kinds[k.id].label, crumb: t.kinds[k.id].label })),
-        { id: 'papers', label: t.navPapers, crumb: t.navPapers },
+        ...(PAPERS_MOUNTED ? [{ id: 'papers', label: t.navPapers, crumb: t.navPapers }] : []),
       ]}
       labels={{
         dialog: t.searchDialog,
