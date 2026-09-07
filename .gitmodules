@@ -3,4 +3,4 @@
 	url = https://github.com/ventusff/astro-inkstone.git
 [submodule "packages/astro-inkbrush"]
 	path = packages/astro-inkbrush
-	url = https://github.com/ventusff/astro-inkbrush.git
+	url = https://github.com/YufengJin/astro-inkbrush.git
