@@ -24,6 +24,16 @@ const { label } = Astro.props;
     <path d="M13.4 9.6A6 6 0 1 1 6.4 2.6a4.8 4.8 0 1 0 7 7z" fill="currentColor"></path>
   </svg>
 </button>
+<script is:inline>
+  // 服务端渲染的是 aria-pressed="false"，而 ThemeInit 已经在 <head> 里把
+  // data-theme 设成了 dark——下面那段模块脚本是 defer 的，纠正之前（打包
+  // 失败的话就是永远）深色页面的按钮一直在宣称「未按下」。这一句紧挨着按钮
+  // 同步跑，DOM 一存在就对上。
+  (() => {
+    const btn = document.currentScript?.previousElementSibling;
+    if (btn) btn.setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
+  })();
+</script>
 
 <script>
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('.theme-toggle')];

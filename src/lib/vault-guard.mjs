@@ -103,8 +103,9 @@ export function privateApi(path, locales = []) {
  */
 export const PRIVATE_ONLY_ATTR = 'data-private-only';
 
-/** 源码里对私密命名空间的任何提法：`[[vault/x]]`、`/vault/x/`、`src/content/vault/` */
-const SOURCE_MENTION = /\bvault\//;
+/** 源码里对私密命名空间的任何提法：`[[vault/x]]`、`/vault/x/`、
+ *  `src/content/vault/`，以及私密静态子站 `/vault-static/x/` */
+const SOURCE_MENTION = /\bvault(-static)?\//;
 
 /** 一段 parse5 节点树的纯文本（template 的内容在 node.content 里） */
 function textOf(node) {
@@ -155,9 +156,13 @@ export function stripPrivateHtml(html, base, locales = []) {
         touched = true;
         continue;
       }
-      if (child.tagName === 'a') {
-        const href = child.attrs?.find((a) => a.name === 'href')?.value;
-        if (hrefIsPrivate(href, base, locales)) {
+      if (child.tagName) {
+        // 每一个属性都看，不只 href：<img src>、<iframe src>、srcset 里的每个
+        // 候选、data-src / data-full 这类懒加载属性，指向私密内容的一样要拿掉。
+        // 挑属性名是挑不完的（一个 href="/public" 排在前面就把 src 挡住了），
+        // 所以扫全部属性值、srcset 再按逗号拆开。<a> 会降级成文字（unlink 把
+        // 子节点提上来），无子节点的 img/iframe 于是原地消失。
+        if (attrsPointPrivate(child, base, locales)) {
           const chain = [...ancestors, node];
           const item = chain.reverse().find((n) => n.tagName === 'li');
           if (item) {
@@ -167,6 +172,9 @@ export function stripPrivateHtml(html, base, locales = []) {
             // 没有 <li> 可剥；降级成文字会把私密笔记的标题原样留在图上
             remove(child);
           } else {
+            // 先把里面清干净再提上来：<a href=私密><img src=私密></a> 这种，
+            // 只 unlink 会把那张私密图片原样留在页面上（提上来的节点不再被遍历）
+            walk(child, [...ancestors, node]);
             unlink(child);
           }
           touched = true;
@@ -204,6 +212,28 @@ export function stripPrivateHtml(html, base, locales = []) {
   const out = serialize(doc);
   const cardsAfter = (out.match(/class="note-card"/g) ?? []).length;
   return { html: out, emptied: cardsBefore > 0 && cardsAfter === 0 };
+}
+
+/**
+ * 这个元素的属性里，有指向私密内容的 URL 吗？
+ *
+ * 扫的是**每一个**属性值而不是点名的几个：`<iframe href="/public"
+ * src="/vault-static/x">` 里点名 href 就会先命中公开的那个而漏掉 src，而
+ * srcset / data-src / poster 这些名字列也列不全。srcset 再按逗号拆开，取每个
+ * 候选的 URL 部分。
+ *
+ * @param {any} node @param {string} base @param {readonly string[]} locales
+ */
+function attrsPointPrivate(node, base, locales) {
+  for (const attr of node.attrs ?? []) {
+    const raw = String(attr.value ?? '');
+    if (raw === '') continue;
+    const candidates = raw.includes(',')
+      ? [raw, ...raw.split(',').map((part) => part.trim().split(/\s+/)[0] ?? '')]
+      : [raw];
+    if (candidates.some((c) => hrefIsPrivate(c, base, locales))) return true;
+  }
+  return false;
 }
 
 /** 一个 parse5 元素节点带这个 class 吗
@@ -519,7 +549,17 @@ function interceptBody(res, transform, shouldBlock, blockedUrl) {
     return true;
   };
 
+  let ended = false;
   res.end = (chunk, encoding, cb) => {
+    // 二次 end()：body 已经发过了，再走一遍会重跑 transform 并再次 writeHead
+    // （ERR_HTTP_HEADERS_SENT）。转发给原始实现也不行——带 chunk 的那个重载会
+    // 触发 ERR_STREAM_WRITE_AFTER_END。丢掉 body，只把回调按异步契约兑现。
+    if (ended) {
+      const again = typeof chunk === 'function' ? chunk : typeof encoding === 'function' ? encoding : cb;
+      if (typeof again === 'function') queueMicrotask(again);
+      return res;
+    }
+    ended = true;
     let done;
     if (typeof chunk === 'function') {
       done = chunk;

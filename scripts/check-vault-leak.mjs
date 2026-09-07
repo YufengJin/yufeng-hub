@@ -11,7 +11,8 @@
  *
  * 站点没跑就跳过（公开 CI 上本来就没有私有站，也没有 vault 可漏）。
  */
-import { request } from 'node:http';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { exit } from 'node:process';
 
 const BASE = process.env.HUB_BASE ?? '/yufeng-hub';
@@ -62,10 +63,11 @@ const failures = [];
 function get(path, method = 'GET', { withBase = true } = {}) {
   const origin = new URL(ORIGIN);
   return new Promise((resolve, reject) => {
-    const req = request(
+    const send = origin.protocol === 'https:' ? httpsRequest : httpRequest;
+    const req = send(
       {
         host: origin.hostname,
-        port: origin.port || 80,
+        port: origin.port || (origin.protocol === 'https:' ? 443 : 80),
         method,
         path: withBase ? `${BASE.replace(/\/$/, '')}${path}` : path,
         // a fresh socket per request: connection reuse across these probes

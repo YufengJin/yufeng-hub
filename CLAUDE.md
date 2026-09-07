@@ -38,7 +38,10 @@
   build），不是给私有站产出 dist。
 - `run-preview.sh` — 退路：`astro preview` 服务 `dist/` 的纯静态只读站。
   **和 wiki 抢 4321，一次只能起一个**；要用它得先
-  `pm2 delete yufeng-hub-wiki`。
+  `pm2 delete yufeng-hub-wiki`。**它没有 vault 阅读门禁**——门禁装在 vite
+  中间件层，只有 `WIKI=1 astro dev` 才加载。所以它现在会自查：`dist/vault*`
+  存在就拒绝启动（要服务公开那半边，把 vault 挂载挪走重新 build；确知无妨用
+  `PREVIEW_ALLOW_VAULT=1` 覆盖）。
 
 ## 必知须知
 
