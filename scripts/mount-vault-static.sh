@@ -12,6 +12,9 @@ cd "$(dirname "$0")/.."
 
 SRC=src/content/vault
 if [ ! -d "$SRC" ]; then
+  # 源挂载不在，装配目录也不能留：check-privacy 只认源挂载，残留的
+  # public/vault-static 会原样进 dist
+  rm -rf public/vault-static
   echo "mount-vault-static: no vault mount, nothing to stage"
   exit 0
 fi

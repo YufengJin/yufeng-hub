@@ -235,21 +235,21 @@
       const cvT=$('cvTrade'), tr=cvT.getContext('2d');
       const sc=$('rtScale'), scV=$('rtScaleV');
       const roll=$('rtReroll'), out=$('rtOut');
-      const T=32, D=2, COL=[BLUE,GREEN]; let seed=0;
+      const NT=32, D=2, COL=[BLUE,GREEN]; let seed=0;
       function makeTraj(){
         const rnd=seededRand(seed*131+7), A=[];
         let mx=1e-8;
-        for(let i=0;i<T;i++){ const t=i/(T-1), row=[];
+        for(let i=0;i<NT;i++){ const t=i/(NT-1), row=[];
           for(let j=0;j<D;j++){ const v=0.6*Math.sin(2*Math.PI*(1+j)*t+j)+0.3*Math.sin(2*Math.PI*(2+j)*t)+0.05*(rnd()-0.5)*2; row.push(v); mx=Math.max(mx,Math.abs(v)); }
           A.push(row); }
-        for(let i=0;i<T;i++)for(let j=0;j<D;j++)A[i][j]/=mx; return A;
+        for(let i=0;i<NT;i++)for(let j=0;j<D;j++)A[i][j]/=mx; return A;
       }
       function col(A,j){ return A.map(r=>r[j]); }
       function roundtrip(A,scale){
         const Cs=[],Cqs=[],Rec=[]; let nnz=0, se=0, cnt=0;
         for(let j=0;j<D;j++){ const C=dctOrtho(col(A,j)); const Cq=C.map(c=>Math.round(c*scale));
           const rec=idctOrtho(Cq.map(c=>c/scale)); Cs.push(C); Cqs.push(Cq); Rec.push(rec);
-          for(let i=0;i<T;i++){ if(Cq[i]!==0)nnz++; const d=A[i][j]-rec[i]; se+=d*d; cnt++; } }
+          for(let i=0;i<NT;i++){ if(Cq[i]!==0)nnz++; const d=A[i][j]-rec[i]; se+=d*d; cnt++; } }
         return {Cs,Cqs,Rec,nnz,mse:se/cnt};
       }
       let A=makeTraj();
@@ -262,20 +262,20 @@
         rt.strokeStyle=LINE; rt.beginPath(); rt.moveTo(20,mid); rt.lineTo(pw-10,mid); rt.stroke();
         for(let j=0;j<D;j++){ const c=col(A,j);
           rt.strokeStyle=COL[j]; rt.lineWidth=2; rt.beginPath();
-          for(let i=0;i<T;i++){ const px=20+i/(T-1)*(pw-30), py=mid-c[i]*bh*0.45; i?rt.lineTo(px,py):rt.moveTo(px,py);} rt.stroke();
+          for(let i=0;i<NT;i++){ const px=20+i/(NT-1)*(pw-30), py=mid-c[i]*bh*0.45; i?rt.lineTo(px,py):rt.moveTo(px,py);} rt.stroke();
           rt.strokeStyle=COL[j]; rt.setLineDash([4,3]); rt.lineWidth=1.5; rt.beginPath();
-          for(let i=0;i<T;i++){ const px=20+i/(T-1)*(pw-30), py=mid-r.Rec[j][i]*bh*0.45; i?rt.lineTo(px,py):rt.moveTo(px,py);} rt.stroke(); rt.setLineDash([]);
+          for(let i=0;i<NT;i++){ const px=20+i/(NT-1)*(pw-30), py=mid-r.Rec[j][i]*bh*0.45; i?rt.lineTo(px,py):rt.moveTo(px,py);} rt.stroke(); rt.setLineDash([]);
         }
         const x2=pw; panel(x2+10,pw,T.rtP2);
         let maxC=1e-6; for(let j=0;j<D;j++)for(const v of r.Cs[j])maxC=Math.max(maxC,Math.abs(v));
-        const bw2=(pw-30)/T;
+        const bw2=(pw-30)/NT;
         rt.strokeStyle=LINE; rt.beginPath(); rt.moveTo(x2+20,mid); rt.lineTo(x2+pw-10,mid); rt.stroke();
-        for(let j=0;j<D;j++)for(let i=0;i<T;i++){ const v=r.Cs[j][i]/maxC*bh*0.42; const px=x2+20+i*bw2+(j-0.5)*bw2*0.45;
+        for(let j=0;j<D;j++)for(let i=0;i<NT;i++){ const v=r.Cs[j][i]/maxC*bh*0.42; const px=x2+20+i*bw2+(j-0.5)*bw2*0.45;
           rt.fillStyle=COL[j]; rt.fillRect(px, v>=0?mid-v:mid, bw2*0.4, Math.abs(v)); }
         const x3=2*pw; panel(x3+10,pw,T.rtP3);
         let maxQ=1e-6; for(let j=0;j<D;j++)for(const v of r.Cqs[j])maxQ=Math.max(maxQ,Math.abs(v));
         rt.strokeStyle=LINE; rt.beginPath(); rt.moveTo(x3+20,mid); rt.lineTo(x3+pw-10,mid); rt.stroke();
-        for(let j=0;j<D;j++)for(let i=0;i<T;i++){ const raw=r.Cqs[j][i]; const v=raw/maxQ*bh*0.42; const px=x3+20+i*bw2+(j-0.5)*bw2*0.45;
+        for(let j=0;j<D;j++)for(let i=0;i<NT;i++){ const raw=r.Cqs[j][i]; const v=raw/maxQ*bh*0.42; const px=x3+20+i*bw2+(j-0.5)*bw2*0.45;
           rt.fillStyle = raw===0?ZERO:COL[j]; rt.fillRect(px, v>=0?mid-v:mid, bw2*0.4, Math.max(Math.abs(v),raw===0?1:0)); }
         return r;
       }
@@ -378,32 +378,32 @@
       const smooth=$('cmpSmooth'),smoothV=$('cmpSmoothV');
       const noise=$('cmpNoise'),scale=$('cmpScale'),scaleV=$('cmpScaleV');
       const fsqN=$('cmpFsqN'),fsqNV=$('cmpFsqNV'),out=$('cmpOut');
-      const T=32,D=2,NBINS=256;
+      const NT=32,D=2,NBINS=256;
       function makeTraj(){
         const sm=+smooth.value, raw=[]; const rnd=seededRand(99);
-        for(let j=0;j<D;j++){const r=[];for(let i=0;i<T;i++)r.push(rnd()-0.5);raw.push(r);}
+        for(let j=0;j<D;j++){const r=[];for(let i=0;i<NT;i++)r.push(rnd()-0.5);raw.push(r);}
         const A=[];let mx=1e-8;
-        for(let i=0;i<T;i++){const row=[];for(let j=0;j<D;j++){
-          let s=0,cnt=0;for(let k=-sm;k<=sm;k++){const idx=i+k;if(idx>=0&&idx<T){s+=raw[j][idx];cnt++;}}
+        for(let i=0;i<NT;i++){const row=[];for(let j=0;j<D;j++){
+          let s=0,cnt=0;for(let k=-sm;k<=sm;k++){const idx=i+k;if(idx>=0&&idx<NT){s+=raw[j][idx];cnt++;}}
           let v=s/cnt*3.2; if(noise.checked)v+=0.06*(rnd()-0.5)*2; row.push(v);mx=Math.max(mx,Math.abs(v));}A.push(row);}
-        for(let i=0;i<T;i++)for(let j=0;j<D;j++)A[i][j]/=mx; return A;
+        for(let i=0;i<NT;i++)for(let j=0;j<D;j++)A[i][j]/=mx; return A;
       }
       function colOf(A,j){return A.map(r=>r[j]);}
       function fast(A,s){const Rec=[],nz=[];let se=0;
         for(let j=0;j<D;j++){const C=dctOrtho(colOf(A,j));const Cq=C.map(v=>Math.round(v*s));
           let n=0;for(const v of Cq)if(v!==0)n++;nz.push(n);const r=idctOrtho(Cq.map(v=>v/s));Rec.push(r);
-          for(let i=0;i<T;i++)se+=(A[i][j]-r[i])**2;}
-        return {rec:Rec,mse:se/(T*D),tokens:nz.reduce((a,b)=>a+b,0)};
+          for(let i=0;i<NT;i++)se+=(A[i][j]-r[i])**2;}
+        return {rec:Rec,mse:se/(NT*D),tokens:nz.reduce((a,b)=>a+b,0)};
       }
       function binning(A){const Rec=[];let se=0;
-        for(let j=0;j<D;j++){const r=[];for(let i=0;i<T;i++){const tok=Math.min(NBINS-1,Math.max(0,Math.round((A[i][j]+1)/2*NBINS)));const dec=tok/NBINS*2-1;r.push(dec);se+=(A[i][j]-dec)**2;}Rec.push(r);}
-        return {rec:Rec,mse:se/(T*D),tokens:T*D};
+        for(let j=0;j<D;j++){const r=[];for(let i=0;i<NT;i++){const tok=Math.min(NBINS-1,Math.max(0,Math.round((A[i][j]+1)/2*NBINS)));const dec=tok/NBINS*2-1;r.push(dec);se+=(A[i][j]-dec)**2;}Rec.push(r);}
+        return {rec:Rec,mse:se/(NT*D),tokens:NT*D};
       }
       function fsqApprox(A,numTok){const L=8,Rec=[];let se=0;const per=Math.max(1,Math.round(numTok/D));
         for(let j=0;j<D;j++){const C=dctOrtho(colOf(A,j));const mxc=Math.max(...C.map(Math.abs),1e-6);
           const Cq=C.map((v,i)=>{ if(i>=per)return 0; const z=Math.max(-1,Math.min(1,v/mxc)); const d=Math.round((z+1)*(L-1)/2); return (d/(L-1)*2-1)*mxc; });
-          const r=idctOrtho(Cq);Rec.push(r);for(let i=0;i<T;i++)se+=(A[i][j]-r[i])**2;}
-        return {rec:Rec,mse:se/(T*D),tokens:per*D};
+          const r=idctOrtho(Cq);Rec.push(r);for(let i=0;i<NT;i++)se+=(A[i][j]-r[i])**2;}
+        return {rec:Rec,mse:se/(NT*D),tokens:per*D};
       }
       let A=makeTraj();
       function drawTraj(rF,rB,rS){
@@ -411,7 +411,7 @@
         c.fillStyle=MUTED;c.font='12px sans-serif';c.fillText(T.cmpTitle,12,18);
         c.strokeStyle=LINE;c.beginPath();c.moveTo(20,mid);c.lineTo(W-10,mid);c.stroke();
         function line(col,arr,dash,w){c.strokeStyle=col;c.setLineDash(dash);c.lineWidth=w;c.beginPath();
-          for(let i=0;i<T;i++){const px=20+i/(T-1)*(W-30),py=mid-arr[i]*amp;i?c.lineTo(px,py):c.moveTo(px,py);}c.stroke();c.setLineDash([]);}
+          for(let i=0;i<NT;i++){const px=20+i/(NT-1)*(W-30),py=mid-arr[i]*amp;i?c.lineTo(px,py):c.moveTo(px,py);}c.stroke();c.setLineDash([]);}
         line(INK,colOf(A,0),[],3);
         line(PURPLE,rF.rec[0],[6,3],1.8);
         line(PINK,rS.rec[0],[2,3],1.8);

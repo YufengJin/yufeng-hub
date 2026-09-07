@@ -50,14 +50,15 @@ const value = def ? def.id : (tag ?? '');
  * pointing at a route that was never built sends the reader to a 404, which
  * is a worse way to lose the language than the one this filtering fixes.
  */
-const has = (u: ResolvedNote[]): boolean =>
-  dim === 'tag'
-    ? u.some((n) => n.tags.includes(value))
-    : dim === 'domain'
-      ? u.some((n) => n.domains.some((d) => d === value))
-      : dim === 'kind'
-        ? u.some((n) => n.kind === value)
-        : u.some((n) => n.status === value);
+// 只看公开笔记：一个只由 en/vault/x 撑起来的标签，会在中文页的语言菜单里
+// 放一行英文入口，访客点过去被门禁剥空、302 回首页
+const has = (all: ResolvedNote[]): boolean => {
+  const u = all.filter((n) => !isPrivate(n.id));
+  if (dim === 'tag') return u.some((n) => n.tags.includes(value));
+  if (dim === 'domain') return u.some((n) => n.domains.some((d) => d === value));
+  if (dim === 'kind') return u.some((n) => n.kind === value);
+  return u.some((n) => n.status === value);
+};
 const alternates = (
   await Promise.all(
     LOCALES.map(async (l) =>
@@ -80,6 +81,11 @@ const headingSub = dSub?.label;
 const description = d ? b.facetDesc(d.desc, publicNotes.length) : b.tagDesc(tag ?? '', publicNotes.length);
 const lede = d ? (dim === 'domain' ? b.domainLede(d.desc, publicNotes.length) : b.facetLede(d.desc, publicNotes.length)) : b.tagLede(publicNotes.length);
 const tone = dim === 'domain' && def && 'tone' in def ? def.tone.fg : undefined;
+/** 把句子里的篇数包成 <span data-live-count>，BrowseLayout 会按真实卡片数改写 */
+const liveCount = (text: string, n: number): string => {
+  const at = text.lastIndexOf(String(n));
+  return at < 0 ? text : `${text.slice(0, at)}<span data-live-count>${n}</span>${text.slice(at + String(n).length)}`;
+};
 ---
 
 <BrowseLayout
@@ -92,7 +98,7 @@ const tone = dim === 'domain' && def && 'tone' in def ? def.tone.fg : undefined;
   <header class="wb-hero">
     <p class="wb-kicker" style={tone ? `--kicker-fg:${tone}` : undefined}>{kicker} <span class="sep">·</span> {kickerSub}</p>
     <h1 class="wb-title">{heading}{headingSub && <span class="en">{headingSub}</span>}</h1>
-    <p class="wb-lede">{lede}</p>
+    <p class="wb-lede" set:html={liveCount(lede, publicNotes.length)} />
   </header>
   <FacetNav
     base={facetBaseFor(locale)}

@@ -94,6 +94,15 @@ export function privateApi(path, locales = []) {
   return null;
 }
 
+/**
+ * 第二条剥离规则的标记：带 `data-private-only` 的元素，未登录时整个消失。
+ * 给那些**不是链接**却按全量集合算出来的东西用——首页「15 篇 · 5 个方向」、
+ * 只有私密笔记用过的方向瓦片、/all/ 上只属于私密笔记的筛选药丸。页面把
+ * 全量版打上这个标记、公开版紧跟其后打 `data-public-twin`，登录者靠 CSS
+ * 只看见前者（site.css），访客经门禁只剩后者。
+ */
+export const PRIVATE_ONLY_ATTR = 'data-private-only';
+
 /** 源码里对私密命名空间的任何提法：`[[vault/x]]`、`/vault/x/`、`src/content/vault/` */
 const SOURCE_MENTION = /\bvault\//;
 
@@ -116,12 +125,10 @@ function textOf(node) {
  * dist 门禁会当场拒绝。
  */
 export function stripPrivateHtml(html, base, locales = []) {
-  if (
-    !html.includes(`${base}${VAULT}/`) &&
-    !html.includes(`${base}${VAULT}-static/`) &&
-    !/\/vault\//.test(html) &&
-    !SOURCE_MENTION.test(html)
-  ) {
+  // 快速路径要和 hrefIsPrivate 一样宽：它认 `/vault`（无尾斜杠）也是私密，
+  // 这里若只找 `vault/` 就会放过一条手写的 `[x](/yufeng-hub/vault)`
+  // 标记只认标签上的属性：site.css 那条孪生选择器会随内联样式出现在每一页
+  if (!/\bvault(-static)?\b/.test(html) && !/<[a-z][^>]*\sdata-private-only(?=[\s>=])/.test(html)) {
     return { html, emptied: false };
   }
   const cardsBefore = (html.match(/class="note-card"/g) ?? []).length;
@@ -143,12 +150,22 @@ export function stripPrivateHtml(html, base, locales = []) {
         }
         continue;
       }
+      if (child.tagName && child.attrs?.some((/** @type {any} */ a) => a.name === PRIVATE_ONLY_ATTR)) {
+        remove(child);
+        touched = true;
+        continue;
+      }
       if (child.tagName === 'a') {
         const href = child.attrs?.find((a) => a.name === 'href')?.value;
         if (hrefIsPrivate(href, base, locales)) {
-          const item = [...ancestors, node].reverse().find((n) => n.tagName === 'li');
+          const chain = [...ancestors, node];
+          const item = chain.reverse().find((n) => n.tagName === 'li');
           if (item) {
             remove(item);
+          } else if (chain.some((n) => n.tagName === 'svg')) {
+            // 本地图谱把每个邻居画成 <svg> 里的 <a>（圆点 + 标题文字），
+            // 没有 <li> 可剥；降级成文字会把私密笔记的标题原样留在图上
+            remove(child);
           } else {
             unlink(child);
           }
@@ -181,9 +198,49 @@ export function stripPrivateHtml(html, base, locales = []) {
 
   walk(doc, []);
   if (!touched) return { html, emptied: false };
+  // 被剥空的面板整块拿掉：只剩标题的「链入本文」和只剩圆心的本地图谱，
+  // 都是「有东西链到这里，只是不给你看」的告示
+  prunePanels(doc);
   const out = serialize(doc);
   const cardsAfter = (out.match(/class="note-card"/g) ?? []).length;
   return { html: out, emptied: cardsBefore > 0 && cardsAfter === 0 };
+}
+
+/** 一个 parse5 元素节点带这个 class 吗
+ *  @param {any} node @param {string} cls */
+function hasClass(node, cls) {
+  return node.attrs?.some((/** @type {any} */ a) => a.name === 'class' && a.value.split(/\s+/).includes(cls)) ?? false;
+}
+
+/**
+ * 剥完链接后，把只剩壳的面板整块删掉：`aside.backlinks` 里 `li` 一个不剩，
+ * 或 `nav.lg-wrap`（本地图谱）的 `.lg-list` 里 `li` 一个不剩。
+ */
+/** @param {any} doc */
+function prunePanels(doc) {
+  /** @param {any} node @param {string} tag @returns {number} */
+  const countTag = (node, tag) => {
+    let n = 0;
+    for (const c of node.childNodes ?? []) {
+      if (c.tagName === tag) n++;
+      n += countTag(c, tag);
+    }
+    return n;
+  };
+  /** @param {any} node */
+  const visit = (node) => {
+    for (const child of [...(node.childNodes ?? [])]) {
+      if (child.tagName && (hasClass(child, 'backlinks') || hasClass(child, 'lg-wrap'))) {
+        if (countTag(child, 'li') === 0) {
+          const siblings = node.childNodes;
+          siblings.splice(siblings.indexOf(child), 1);
+          continue;
+        }
+      }
+      visit(child);
+    }
+  };
+  visit(doc);
 }
 
 /**
@@ -222,6 +279,40 @@ export function requestPath(rawUrl, base) {
     return null;
   }
   return { path, variants: [...variants] };
+}
+
+/**
+ * 这次请求碰到 vault 的**源文件**了吗？——路径或 query 里，解码两遍、折叠
+ * 点段之后，出现 `src/content/vault/` 或 `/vault-static/`。
+ *
+ * 为什么不能靠 vite 的 `server.fs.deny` 把 vault 目录整个拒掉：astro dev
+ * 的图片端点 `/_image?href=/@fs/…/src/content/vault/x/img/fig.svg` 先拿
+ * 同一份 deny 名单自检，被拒就退回去用 HTTP 抓 `/@fs/…`，再被拒，最后 500
+ * ——私密笔记里的每一张插图都挂，**登录了也一样**（2026-09-07 实测）。
+ * deny 名单不认人，而门禁认：登录者放行，未登录一律不给。它覆盖的三条路
+ * ——`/@fs/<绝对路径>/src/content/vault/…`、`/src/content/vault/…`、以及
+ * `/_image?href=…` 里藏着的这两种——都是同一个正则的事。畸形 URL 解不开
+ * 就当碰到了：保密边界往关的方向失败。
+ *
+ * @param {string} rawUrl
+ */
+export function mentionsVaultSource(rawUrl) {
+  const HIT = /(^|\/)(src\/)?content\/vault(\/|$)|(^|\/)vault-static(\/|$)/;
+  let u = rawUrl;
+  for (let round = 0; round < 2; round++) {
+    try {
+      u = decodeURIComponent(u);
+    } catch {
+      return true;
+    }
+    if (HIT.test(u)) return true;
+    // query 里的每个值、路径本身：折叠 `.`/`..` 之后再看一眼
+    for (const piece of u.split(/[?&=#]/)) {
+      if (piece.includes('/') && HIT.test(posix.normalize(piece))) return true;
+    }
+    if (!u.includes('%')) break;
+  }
+  return false;
 }
 
 /* ---------------- the dev-server middleware ---------------- */
@@ -291,9 +382,12 @@ function installGuard(server, base, locales) {
           return;
         }
         const { path, variants } = seen;
+        // vault 源文件与图片端点：见 mentionsVaultSource
+        const touchesSource = mentionsVaultSource(req.url || '/');
 
-        // vite 自己的东西（HMR、模块图、内联资源）不经过门禁
-        if (path.startsWith('/@') || path.startsWith('/node_modules/')) return next();
+        // vite 自己的东西（HMR、模块图、内联资源）不经过门禁——除非它指向
+        // vault 的源文件（/@fs/…/src/content/vault/…）
+        if ((path.startsWith('/@') || path.startsWith('/node_modules/')) && !touchesSource) return next();
 
         // CMS 接口：几条公开路由（/meta、/comments、/notes）本来会把 vault
         // 笔记的 id、标题、文件路径交给任何人——实测未登录 /api/wiki/notes
@@ -305,7 +399,7 @@ function installGuard(server, base, locales) {
         const isIndex = path === '/search-index.json';
         // 私密与否看路径的每一种形态（折叠点段前后、剥 base 前后）
         const privatePath = api === null && variants.some((v) => isPrivatePath(v, locales));
-        const guarded = api !== null || privatePath || isIndex || looksLikePage(path);
+        const guarded = api !== null || privatePath || touchesSource || isIndex || looksLikePage(path);
         if (!guarded) return next();
 
         void identityOf(req).then((identity) => {
@@ -316,6 +410,14 @@ function installGuard(server, base, locales) {
             res.setHeader('content-type', 'application/json; charset=utf-8');
             res.setHeader('cache-control', 'no-store');
             res.end(JSON.stringify({ error: 'Sign in required' }));
+            return;
+          }
+
+          // 私密源文件 / 图片：不是页面，没有登录浮层可弹，直接 403
+          if (touchesSource && !privatePath) {
+            res.statusCode = 403;
+            res.setHeader('cache-control', 'no-store');
+            res.end();
             return;
           }
 

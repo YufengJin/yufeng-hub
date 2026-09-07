@@ -29,3 +29,14 @@ const { title, description, locale = DEFAULT_LOCALE, crumbs = [], alternates } =
     <slot />
   </main>
 </Base>
+
+<script>
+  // 页头的「共 N 篇」是服务端按**公开**口径算的（元数据会泄漏私密笔记的
+  // 存在，见 AllNotesPage 的注释），而卡片列表登录后是全量的：登录者会看到
+  // 「共 6 篇」压着 15 张卡。数字改成跟着页面上真实的卡片数走——访客那边
+  // 门禁剥完卡片后两个数本来就相等，登录者这边则对得上自己看到的东西。
+  const cards = document.querySelectorAll('.wb-grid > li').length;
+  for (const el of document.querySelectorAll<HTMLElement>('[data-live-count]')) {
+    if (el.textContent !== String(cards)) el.textContent = String(cards);
+  }
+</script>

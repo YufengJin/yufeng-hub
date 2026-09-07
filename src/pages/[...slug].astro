@@ -179,7 +179,9 @@ if (hubEntry?.data.nav) {
       const label = entry.data.navLabel ?? entry.data.title;
       hubPage = {
         crumbLabel: `${t.partLabel(roman(position))} · ${label}`,
-        hubHref: routeTo(topic),
+        // 带命名空间：私密镜像章节的 hub 在 vault/ 下，漏了就指向一个
+        // 不存在的公开路由
+        hubHref: routeTo(`${ns}${topic}`),
       };
     }
   }

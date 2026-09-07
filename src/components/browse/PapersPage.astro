@@ -90,6 +90,11 @@ const alternates: Alternate[] = [
     {
       papers.map((p) => {
         const cover = coverOf(p.slug);
+        // the English line is a SECOND line: when the card's name already is
+        // the English title (no Chinese title in meta), printing it again
+        // under itself only makes the card look broken
+        const name = p.title_zh ?? p.title ?? p.title_en ?? p.slug;
+        const nameEn = p.title_en && p.title_en !== name ? p.title_en : null;
         return (
           <li class="pw-card">
             <a href={href(`papers/${p.slug}/`)}>
@@ -108,8 +113,8 @@ const alternates: Alternate[] = [
                   {p.arxiv_id && <span class="pw-arxiv">arXiv:{p.arxiv_id}</span>}
                   {hasPodcast(p.slug) && <span class="pw-pod" title="有播客 / has podcast">🎧</span>}
                 </span>
-                <span class="pw-name">{p.title_zh ?? p.title ?? p.title_en ?? p.slug}</span>
-                {p.title_en && p.title_en !== (p.title_zh ?? p.title) && <span class="pw-name-en">{p.title_en}</span>}
+                <span class="pw-name">{name}</span>
+                {nameEn && <span class="pw-name-en">{nameEn}</span>}
               </span>
             </a>
           </li>

@@ -236,7 +236,10 @@ figure.fms-panel figcaption b{color:var(--fms-ink);font-weight:650}
 .fms-t-euler{color:var(--fms-euler)} .fms-t-midpoint{color:var(--fms-midpoint)}
 .fms-t-heun{color:var(--fms-heun)} .fms-t-rk4{color:var(--fms-rk4)}
 .fms-t-dopri5{color:var(--fms-dopri5)}
-table.fms-butcher{width:auto;margin:0 auto}
+/* 手写的 <table>（不是 markdown 表格）没有流水线套的 .tbl-wrap 滚动盒：
+   7 列在手机上把整页撑到 640px 宽、横向漂移。自己当滚动盒：max-content 宽
+   + margin auto 仍然居中，超过列宽时就在表内横滚 */
+table.fms-butcher{display:block;width:max-content;max-width:100%;overflow-x:auto;margin:0 auto}
 table.fms-butcher td{border:0;padding:.15rem .55rem;font-family:var(--fms-mono);
   font-size:.78rem;text-align:center;font-variant-numeric:tabular-nums}
 table.fms-butcher td.cl{border-right:1.5px solid var(--fms-ink)}

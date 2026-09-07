@@ -201,6 +201,15 @@ main.note-main {
   margin: 0;
 }
 
+/* Markdown 里的 ![]() 图片：astro 的图片组件会写死 width/height 属性
+   （880×470 之类），base.css 只约束了 <Figure> 里的图，裸图在手机上就把
+   整页撑到 780px 宽、横向漂移（lie-theory、vault 里好几篇实测）。
+   宽度封顶，高度按比例跟随。 */
+main.note-main .col img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ---------------------------------------------------------- sidebar ---- */
 .sidebar .brand-link {
   color: inherit;
@@ -324,6 +333,7 @@ main.note-main {
     place-items: center;
     width: 28px;
     height: 28px;
+    flex-shrink: 0;
     border: 1px solid transparent;
     border-radius: 7px;
     background: none;
@@ -349,9 +359,19 @@ main.note-main {
 .site-nav .wiki-chip {
   font-family: var(--font-ui);
   font-size: 12px;
+  /* the chip is a flex item of the bar: on a phone it must neither shrink
+     nor break "登录" into two stacked characters — the trail yields instead */
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ========================================================== the vault ===== */
+/* 全量版 / 公开版孪生（见 vault-guard 的 PRIVATE_ONLY_ATTR）：两个都在 DOM 里
+   说明门禁没剥（登录了），只看全量版；访客那边前者已被门禁拿掉，只剩后者 */
+[data-private-only] + [data-public-twin] {
+  display: none !important;
+}
+
 /* Private notes are ordinary notes of the `vault/` namespace — same layout,
    same shelves, same link graph. The one thing they need is to say so at a
    glance, so you always know which half you are reading before you cite it

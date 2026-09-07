@@ -120,13 +120,15 @@ export default defineConfig({
   // an IP host is never checked. SITE_HOST takes a comma-separated list, so
   // the MagicDNS short name and the full name can both be named.
   vite: {
-    // 私密挂载的源文件绝不能经 HTTP 出去。vault-guard 挡的是页面路由，
-    // 而 vite 还有 /@fs/、/src/…、/public/… 三条直达文件的路——实测未登录
-    // 能整篇读到 src/content/vault/<id>/index.mdx。这一层对所有人关闭它们：
-    // 渲染页面走的是 node 直接读文件，不经过这条 HTTP 通道。
+    // 私密挂载的源文件绝不能经 HTTP 出去。vite 有 /@fs/、/src/…、/public/…
+    // 三条直达文件的路——实测未登录曾能整篇读到 src/content/vault/<id>/index.mdx。
+    // 这些路由 vault-guard 按身份挡（mentionsVaultSource）：登录者放行，未登录
+    // 403。**不能**把 src/content/vault 写进 fs.deny：astro dev 的图片端点
+    // `/_image` 用同一份名单自检，被拒就 500，私密笔记里的插图登录了也全挂
+    // （2026-09-07 踩过）。private 静态子站没有图片端点这回事，照旧 deny。
     server: {
       allowedHosts: ALLOWED_HOSTS,
-      ...secureFsDeny(['**/src/content/vault/**', '**/public/vault-static/**']),
+      ...secureFsDeny(['**/public/vault-static/**']),
     },
     preview: { allowedHosts: ALLOWED_HOSTS },
   },

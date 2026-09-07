@@ -34,15 +34,34 @@ const publicUnits = units.filter((u) => !isPrivate(u.id));
 const byId = new Map((await getCollection('notes')).map((e) => [e.id, e]));
 const facets = facetsOf(publicUnits, locale);
 const allTags = [...tagIndex(publicUnits).keys()];
-const kindDefs = KINDS.filter((k) => units.some((u) => u.kind === k.id)).map((k) => localized('kind', k, locale));
-const domainDefs = DOMAINS.filter((d) => units.some((u) => u.domains.includes(d.id))).map((d) => localized('domain', d, locale));
-const statusDefs = STATUSES.filter((s) => units.some((u) => u.status === s.id)).map((s) => localized('status', s, locale));
+// 筛选药丸：只有私密笔记用过的值（比如方向 infra）对访客就是「这里有你看
+// 不见的东西」，点进去还会被门禁 302 到首页——这些药丸打 data-private-only，
+// 门禁给访客剥掉；登录者照常能按它筛自己的私密卡片
+const privateOnly = (has: (u: (typeof units)[number]) => boolean): Record<string, string> =>
+  publicUnits.some(has) ? {} : { 'data-private-only': '' };
+const kindDefs = KINDS.filter((k) => units.some((u) => u.kind === k.id)).map((k) => ({
+  ...localized('kind', k, locale),
+  attrs: privateOnly((u) => u.kind === k.id),
+}));
+const domainDefs = DOMAINS.filter((d) => units.some((u) => u.domains.includes(d.id))).map((d) => ({
+  ...localized('domain', d, locale),
+  attrs: privateOnly((u) => u.domains.includes(d.id)),
+}));
+const statusDefs = STATUSES.filter((s) => units.some((u) => u.status === s.id)).map((s) => ({
+  ...localized('status', s, locale),
+  attrs: privateOnly((u) => u.status === s.id),
+}));
+/** 把句子里的篇数包成 <span data-live-count>，BrowseLayout 会按真实卡片数改写 */
+const liveCount = (text: string, n: number): string => {
+  const at = text.lastIndexOf(String(n));
+  return at < 0 ? text : `${text.slice(0, at)}<span data-live-count>${n}</span>${text.slice(at + String(n).length)}`;
+};
 ---
 
 <BrowseLayout title={b.all} description={b.allDesc(publicUnits.length)} locale={locale} crumbs={[{ label: b.all }]} alternates={browseAlternates('all/')}>
   <header class="wb-hero">
     <p class="wb-kicker">{b.all} <span class="sep">·</span> {b.allKicker}</p>
-    <h1 class="wb-title">{b.all}<span class="en">{b.allEntries(publicUnits.length)}</span></h1>
+    <h1 class="wb-title">{b.all}<span class="en" set:html={liveCount(b.allEntries(publicUnits.length), publicUnits.length)} /></h1>
     <p class="wb-lede">{b.allLede}</p>
   </header>
   <FacetNav
@@ -58,15 +77,15 @@ const statusDefs = STATUSES.filter((s) => units.some((u) => u.status === s.id)).
   <div class="wb-filters" data-filters>
     <span class="f-dim">{b.dimKind}</span>
     {kindDefs.map((k) => (
-      <a class="f-pill" href={links.kind(k.id)} data-filter="kind" data-value={k.id}>{k.label}</a>
+      <a class="f-pill" href={links.kind(k.id)} data-filter="kind" data-value={k.id} {...k.attrs}>{k.label}</a>
     ))}
     <span class="f-dim">{b.dimDomain}</span>
     {domainDefs.map((d) => (
-      <a class="f-pill" href={links.domain(d.id)} data-filter="domain" data-value={d.id}>{d.label}</a>
+      <a class="f-pill" href={links.domain(d.id)} data-filter="domain" data-value={d.id} {...d.attrs}>{d.label}</a>
     ))}
     <span class="f-dim">{b.dimStatus}</span>
     {statusDefs.map((s) => (
-      <a class="f-pill" href={links.status(s.id)} data-filter="status" data-value={s.id}>{s.label}</a>
+      <a class="f-pill" href={links.status(s.id)} data-filter="status" data-value={s.id} {...s.attrs}>{s.label}</a>
     ))}
     <button class="f-clear" type="button" data-clear hidden>{b.clear}</button>
     <span class="wb-count" role="status" aria-live="polite" data-count></span>

@@ -38,6 +38,10 @@ const NAMESPACES = [
     name: 'vault',
     repo: 'yufeng-vault',
     mounts: ['src/content/vault', 'public/vault-static'],
+    /** 「挂载在位」只看源挂载：public/vault-static 是从它装配出来的，源没了
+     *  而装配目录还在（没跑 mount 脚本、或脚本早退）正是要抓的那种残留，
+     *  不能反过来拿残留当作「在位」的证据 */
+    source: 'src/content/vault',
     distDirs: ['vault', 'vault-static'],
     link: () => /href="[^"]*\/vault(?:-static)?\//g,
     idPrefix: 'vault/',
@@ -46,6 +50,7 @@ const NAMESPACES = [
     name: '论文墙',
     repo: 'yufeng-papers',
     mounts: ['public/papers'],
+    source: 'public/papers',
     distDirs: ['papers'],
     link: () => /href="[^"]*\/papers\//g,
     idPrefix: 'papers/',
@@ -75,7 +80,7 @@ for (const mount of MOUNTS) {
 
 /* ---------- 2. 某个命名空间没挂载时，产物里不得有它的痕迹 ---------- */
 const dist = join(root, 'dist');
-const absent = NAMESPACES.filter((ns) => !ns.mounts.some((m) => existsSync(join(root, m))));
+const absent = NAMESPACES.filter((ns) => !existsSync(join(root, ns.source)));
 
 if (absent.length && existsSync(dist)) {
   for (const ns of absent) {

@@ -94,9 +94,18 @@ const home = landingRoute(locale);
 <script>
   // Mobile drawer
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
-  toggle?.addEventListener('click', () => {
-    const open = document.body.classList.toggle('nav-open');
-    toggle.setAttribute('aria-expanded', String(open));
+  const setOpen = (open: boolean): void => {
+    document.body.classList.toggle('nav-open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+  };
+  toggle?.addEventListener('click', () => setOpen(!document.body.classList.contains('nav-open')));
+  // The drawer sits ABOVE the column on phones (site.css), so a contents
+  // link left it open and the reader landed with the whole list still
+  // between the bar and the heading. Picking a row closes the drawer first;
+  // the anchor jump then happens against the closed layout, so the heading
+  // arrives where the browser expects it.
+  document.getElementById('site-sidebar')?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a') && document.body.classList.contains('nav-open')) setOpen(false);
   });
 </script>
 
@@ -219,6 +228,9 @@ const home = landingRoute(locale);
     place-items: center;
     width: 28px;
     height: 28px;
+    /* a control, not a spring: when the bar is tight the trail gives way,
+       never the buttons (28 → 16px squashed icons were the phone symptom) */
+    flex-shrink: 0;
     padding: 0;
     border: 1px solid transparent;
     border-radius: 7px;
@@ -244,22 +256,30 @@ const home = landingRoute(locale);
   @media (max-width: 720px) {
     .site-nav {
       padding: 0 10px;
-      gap: 9px;
+      gap: 8px;
     }
     .nav-link {
       display: none;
     }
-    /* Narrow screens keep only "garden › current page": the full trail does
-       not fit 430px and would be hard-clipped mid-word. Middle crumbs
-       collapse; the last one ends in an ellipsis. */
+    /* Narrow screens keep only the CURRENT page in the trail: the mark at
+       the left already goes home, and with the account chip docked there is
+       no room for "garden › page" — the page name collapsed to a lone "›".
+       Inner pages hide the root crumb and the separator; the landing page
+       (no crumbs) keeps the wordmark. The one crumb left ends in an ellipsis. */
     .trail {
       overflow-x: hidden;
     }
-    .trail li:not(:first-child):not(:last-child) {
+    .trail li:not(:last-child) {
       display: none;
     }
     .trail li:last-child {
       min-width: 0;
+    }
+    /* same `li + li` shape as the separator rule above, so the scoped
+       specificity is strictly higher and the "›" really goes away */
+    .trail li + li:last-child::before {
+      content: none;
+      margin: 0;
     }
     .trail .here,
     .trail li:last-child a {
@@ -268,6 +288,11 @@ const home = landingRoute(locale);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    /* the current page's name is what orients the reader: keep it at least
+       a few characters wide before the controls start to give way */
+    .trail-nav {
+      min-width: 4.5em;
     }
   }
 </style>

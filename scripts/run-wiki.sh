@@ -2,7 +2,9 @@
 # yufeng-hub 私有站（编辑机形态）：常驻 WIKI=1 astro dev，带 inkbrush CMS，
 # 只绑 tailnet 地址。pm2 进程 yufeng-hub-wiki。
 export PATH=$HOME/.nvm/versions/node/v22.23.2/bin:$HOME/.local/bin:$PATH
-cd $HOME/yufeng-hub/hub-site
+# cd 失败必须停：不然下面的相对路径 ./node_modules/.bin/astro 会在 pm2 给的
+# 随便哪个 cwd 里解析，起错项目
+cd "$HOME/yufeng-hub/hub-site" || exit 1
 # tailnet 主机名访问需显式放行（Vite Host 头校验）；IP 直连不受此限。
 # dev 与 preview 是两套配置，astro.config.mjs 把这份名单同时喂给两者。
 export SITE_HOST=chaser-ws02-u,chaser-ws02-u.eagle-terrapin.ts.net

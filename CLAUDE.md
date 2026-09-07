@@ -207,7 +207,11 @@
   根本不过 astro 路由。
 - **源文件也得挡**：vite 还有 `/@fs/`、`/src/…`、`/public/…` 三条直达文件的
   路——未登录本来能整篇读到 `src/content/vault/<id>/index.mdx`。
-  `astro.config.mjs` 的 `secureFsDeny` 里点名了这两个挂载目录。
+  这三条路由 vault-guard 按身份挡（`mentionsVaultSource`：路径或 query 里
+  解码两遍、折叠点段后出现 `src/content/vault/` 或 `/vault-static/` 即未登录
+  403）。**别把 `src/content/vault` 写回 `secureFsDeny`**：astro dev 的图片端点
+  `/_image` 用同一份 deny 名单自检，被拒就 500，私密笔记里的插图登录了也全挂
+  （2026-09-07 踩过）。`public/vault-static` 照旧 deny。
 - **方法不设限**：vite 的静态中间件不挑方法，只放行 GET/HEAD 的话一个
   `POST /vault-static/<slug>/index.html` 就能原样取走私密内容。
 - **防漏门禁**：`scripts/check-vault-leak.mjs`（已挂进 `pnpm check`）以未

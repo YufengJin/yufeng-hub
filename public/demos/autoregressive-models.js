@@ -75,7 +75,7 @@
     /* ===== 自回归生成 ===== */
     (function(){
       const cv=$('cvGen'); if(!cv) return; const x=cv.getContext('2d'),out=$('genOut');
-      const step=$('genStep'),reset=$('genReset'),T=$('genT'),TV=$('genTV');
+      const step=$('genStep'),reset=$('genReset'),tauIn=$('genT'),TV=$('genTV');
       const vocab=['↑','↓','←','→','◦','✋','⊙'];
       let gen=['<S>']; let lastProbs=null;
       function logitsFor(hist){ const last=hist[hist.length-1]; return vocab.map((v,i)=>Math.sin(i*1.7+hist.length*0.9+(last?last.charCodeAt(0):0)*0.13)+1.2); }
@@ -97,14 +97,14 @@
             x.fillStyle=MUTED;x.font='11px sans-serif';x.fillText((lastProbs[i]*100).toFixed(0)+'%',bx+4,by-h-4);});
         }
       }
-      function doStep(){const tau=+T.value/100;const p=softmax(logitsFor(gen),tau);lastProbs=p;
+      function doStep(){const tau=+tauIn.value/100;const p=softmax(logitsFor(gen),tau);lastProbs=p;
         let r=Math.random(),acc=0,idx=0;for(let i=0;i<p.length;i++){acc+=p[i];if(r<=acc){idx=i;break;}}
         gen.push(vocab[idx]);draw();
         out.textContent=T.genOut(vocab[idx], (p[idx]*100).toFixed(0));
         if(gen.length>10){out.textContent+=T.genLimit;step.disabled=true;}
       }
       step.onclick=doStep;reset.onclick=()=>{gen=['<S>'];lastProbs=null;step.disabled=false;out.textContent='';draw();};
-      T.oninput=()=>{TV.textContent=(+T.value/100).toFixed(2);};
+      tauIn.oninput=()=>{TV.textContent=(+tauIn.value/100).toFixed(2);};
       draw();
     })();
   }

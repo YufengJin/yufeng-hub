@@ -12,6 +12,7 @@ import Base from '../../layouts/Base.astro';
 import { browseHrefFor, localized } from '../../lib/display';
 import { browseAlternates, GITHUB_URL, href, localePrefix, UI, type Locale } from '../../lib/i18n';
 import { PAPERS_MOUNTED } from '../../lib/papers';
+import { isPrivate } from '../../lib/private';
 import { getWikiUnits } from '../../lib/taxonomy';
 import { DOMAINS } from '../../content/notes/_meta/taxonomy';
 
@@ -24,8 +25,22 @@ const links = browseHrefFor(locale);
 const p = localePrefix(locale);
 
 const units = await getWikiUnits(locale);
-const recent = units.slice(0, 3);
-const domainCount = new Set(units.flatMap((u) => u.domains)).size;
+// 计数只算公开笔记，和 /all/ 的「共 N 篇」同一口径：总数、方向数、每个
+// 方向的篇数都是从整个集合派生的**元数据**，未登录时门禁能剥掉私密卡片，
+// 却剥不掉「15 篇」这个数字——首页说 15、列表页说 6，多出来的 9 篇就是
+// 私密笔记的存在本身。登录者看到的也是同一组数，两页才对得上。
+const publicUnits = units.filter((u) => !isPrivate(u.id));
+// 登录者看全量：全量版打 data-private-only（门禁给访客剥掉），公开版紧跟
+// 其后打 data-public-twin（site.css 在两者并存时只显示前者）。两个数相等时
+// 只出一份。
+// 「最近更新」：最新三篇，外加最新三篇**公开**笔记的并集，按时间排。私密
+// 条目未登录时被门禁整条剥掉，只取前三的话，访客可能一张卡都剩不下；
+// 并集保证访客总有三张，登录者多看到几张更新的私密笔记。
+const recentIds = new Set([...units.slice(0, 3), ...publicUnits.slice(0, 3)].map((u) => u.id));
+const recent = units.filter((u) => recentIds.has(u.id));
+const domainCount = new Set(publicUnits.flatMap((u) => u.domains)).size;
+const domainCountAll = new Set(units.flatMap((u) => u.domains)).size;
+const hasPrivate = units.length !== publicUnits.length;
 
 // a card titles itself after the note's mirror in the page's locale when one
 // exists; its link goes to that mirror, else to the primary edition
@@ -63,7 +78,7 @@ const T = {
     ctaNotes: '浏览笔记',
     ctaPapers: '看论文墙',
     notesTitle: '笔记园地',
-    notesSub: `${units.length} 篇笔记 · ${domainCount} 个方向 · 按形式、方向与标签浏览`,
+    notesSub: (n: number, d: number) => `${n} 篇笔记 · ${d} 个方向 · 按形式、方向与标签浏览`,
     notesLink: '全部笔记',
     recentLabel: '最近更新',
     papersTitle: '论文墙',
@@ -72,7 +87,7 @@ const T = {
     domainsTitle: '按方向探索',
     domainCountOf: (n: number) => `${n} 篇`,
     domainEmpty: '待播种',
-    searchHint: '⌘K 全站搜索',
+    searchHint: '全站搜索',
   },
   en: {
     eyebrow: 'A personal knowledge garden',
@@ -80,7 +95,7 @@ const T = {
     ctaNotes: 'Browse notes',
     ctaPapers: 'See the paper wall',
     notesTitle: 'The garden',
-    notesSub: `${units.length} notes · ${domainCount} domains · browse by kind, domain and tag`,
+    notesSub: (n: number, d: number) => `${n} notes · ${d} domains · browse by kind, domain and tag`,
     notesLink: 'All notes',
     recentLabel: 'Recently updated',
     papersTitle: 'Paper wall',
@@ -89,15 +104,25 @@ const T = {
     domainsTitle: 'Explore by domain',
     domainCountOf: (n: number) => `${n} notes`,
     domainEmpty: 'to be planted',
-    searchHint: '⌘K to search',
+    searchHint: 'Search the site',
   },
 }[locale];
 
 const domainTiles = DOMAINS.map((d) => ({
   ...localized('domain', d, locale),
-  count: units.filter((u) => u.domains.includes(d.id)).length,
+  // 公开口径：一个只有私密笔记的方向，对访客而言就是「待播种」——否则瓦片
+  // 链向的分类页会被门禁剥空后整页 302，还顺带报出私密笔记的篇数。
+  // countAll 是登录者看到的那份（全量版瓦片）。
+  count: publicUnits.filter((u) => u.domains.includes(d.id)).length,
+  countAll: units.filter((u) => u.domains.includes(d.id)).length,
   href: links.domain(d.id),
 }));
+// 每个方向出一到两张瓦片：私密笔记撑起了差额时，先出全量版（登录者看的，
+// data-private-only），再出公开版（data-public-twin）；否则只出公开版
+const tileRows = domainTiles.flatMap((d) => {
+  const pub = { ...d, n: d.count, attrs: { 'data-public-twin': '' } };
+  return d.countAll > d.count ? [{ ...d, n: d.countAll, attrs: { 'data-private-only': '' } }, pub] : [pub];
+});
 ---
 
 <Base
@@ -116,13 +141,19 @@ const domainTiles = DOMAINS.map((d) => ({
         <a class="pill solid" href={links.all()}>{T.ctaNotes}</a>
         {PAPERS_MOUNTED && <a class="pill ghost" href={href(`${p}papers/`)}>{T.ctaPapers} <span aria-hidden="true">›</span></a>}
       </div>
-      <p class="search-hint">{T.searchHint}</p>
+      {/* a real opener, not a caption: on a phone there is no ⌘K, so the
+          line itself must open the palette; the shortcut is named only
+          where a keyboard is likely (fine pointer) */}
+      <button class="search-hint" type="button" data-search-open>
+        <span class="kbd">⌘K</span> {T.searchHint}
+      </button>
     </section>
 
     <section class="tile">
       <div class="tile-head">
         <h2>{T.notesTitle}</h2>
-        <p>{T.notesSub}</p>
+        {hasPrivate && <p data-private-only>{T.notesSub(units.length, domainCountAll)}</p>}
+        <p data-public-twin>{T.notesSub(publicUnits.length, domainCount)}</p>
         <a class="tile-link" href={links.all()}>{T.notesLink} <span aria-hidden="true">›</span></a>
       </div>
       <p class="strip-label">{T.recentLabel}</p>
@@ -174,17 +205,17 @@ const domainTiles = DOMAINS.map((d) => ({
         {
           /* a domain with no notes has no facet route yet — its tile stays,
              linkless, as a "to be planted" placeholder */
-          domainTiles.map((d) =>
-            d.count > 0 ? (
-              <li>
+          tileRows.map((d) =>
+            d.n > 0 ? (
+              <li {...d.attrs}>
                 <a href={d.href}>
                   <span class="d-label">{d.label}</span>
                   <span class="d-desc">{d.desc}</span>
-                  <span class="d-count">{T.domainCountOf(d.count)} <span aria-hidden="true">›</span></span>
+                  <span class="d-count">{T.domainCountOf(d.n)} <span aria-hidden="true">›</span></span>
                 </a>
               </li>
             ) : (
-              <li>
+              <li {...d.attrs}>
                 <span class="d-tile-empty">
                   <span class="d-label">{d.label}</span>
                   <span class="d-desc">{d.desc}</span>
@@ -268,9 +299,29 @@ const domainTiles = DOMAINS.map((d) => ({
     background: var(--color-accent-soft);
   }
   .search-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     margin: 22px 0 0;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
     font: 400 13px/1 var(--font-ui);
     color: var(--color-ink-faint);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+  .search-hint:hover {
+    color: var(--color-ink);
+  }
+  .search-hint .kbd {
+    font: 500 12px/1 var(--font-ui);
+  }
+  @media (pointer: coarse) {
+    .search-hint .kbd {
+      display: none;
+    }
   }
 
   /* ---- tiles ---- */

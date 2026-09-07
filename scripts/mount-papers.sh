@@ -33,6 +33,9 @@ done
 
 n=0
 for m in "$SRC"/*/meta.json; do
+  # 没开 nullglob：源目录空着时 $m 是字面的 */meta.json，rsync 会拿一个叫 * 的
+  # 目录报错，把整条 update-site 拖死；跳过它，让下面报「staged 0」
+  [ -f "$m" ] || continue
   d="$(dirname "$m")"
   slug="$(basename "$d")"
   rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$d/" "public/papers/$slug/"
