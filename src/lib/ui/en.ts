@@ -43,7 +43,7 @@ export const strings: UIStrings = {
   footer: 'Yufeng Hub · a personal garden: notes, papers and a vault',
 
   landingTitle: 'A personal garden',
-  landingDesc: "Yufeng Jin's personal knowledge garden — notes, a paper wall and a private vault.",
+  landingDesc: "Yufeng Jin's personal knowledge garden — read, thought through, written down.",
 
   speakLabel: 'In plain words →',
   diffLabel: 'vs prior →',

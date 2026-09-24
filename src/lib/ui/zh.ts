@@ -53,7 +53,7 @@ export const strings: UIStrings = {
   footer: 'Yufeng Hub · 个人园地：笔记、论文与私密库',
 
   landingTitle: '个人园地',
-  landingDesc: 'Yufeng Jin 的个人知识园地——笔记、论文墙与私密库，读过、想过、写下来。',
+  landingDesc: 'Yufeng Jin 的个人知识园地——读过、想过、写下来。',
 
   speakLabel: '说人话 →',
   diffLabel: '相比前作 →',

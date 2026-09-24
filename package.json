@@ -10,7 +10,7 @@
     "postbuild": "node packages/astro-inkbrush/scripts/check-dist.mjs dist --base ${HUB_BASE:-/yufeng-hub} && node scripts/check-privacy.mjs",
     "preview": "astro preview",
     "wiki": "WIKI=1 astro dev",
-    "check": "node scripts/check-content.mjs && node scripts/check-links.mjs && node scripts/check-privacy.mjs && node scripts/check-vault-leak.mjs"
+    "check": "node scripts/check-content.mjs && node scripts/check-content-size.mjs && node scripts/check-links.mjs && node scripts/check-privacy.mjs && node scripts/check-vault-leak.mjs"
   },
   "engines": {
     "node": ">=22.18.0"

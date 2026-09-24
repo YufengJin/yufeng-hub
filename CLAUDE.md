@@ -4,6 +4,14 @@
 这里的 `.claude/skills/`（随仓库版本化，clone 即得）；各模块仓库只放内容和
 自己的生产流水线。参考 chaser-hub 的形态：壳 = 大脑，内容仓 = 素材库。
 
+## 默认私密（2026-09-24 起）
+
+hub 的三种日常写作——**单篇整理、方向综述、实验记录**——产出**一律落私密**：
+arXiv 论文进论文墙（私有仓库），其余进 vault（私有仓库）。公开 wiki（yufeng-wiki，
+公开仓库 + 公开站）只收用户**明确点名要公开**的笔记，而且只走 `publish` skill
+（先扫描敏感信息、给用户过目，再搬家）。写完一篇不等于要公开，别主动提议。
+推送到私有仓库是备份，不算「发布」。
+
 ## ws02 上的工作区布局（标准部署）
 
 ```
@@ -49,6 +57,12 @@
   `export PATH=$HOME/.nvm/versions/node/v22.23.2/bin:$PATH`。
 - **内容质量门禁**：笔记改动后必须过 `pnpm check`（方言 + 链接，公开 wiki 与
   私密 vault 两边一起过），再 `pnpm build`（含 postbuild dist 检查）。
+- **存储门禁**：git 永远记得每个提交过的字节，所以大文件要在提交**之前**拦。
+  `pnpm check` 里的 `scripts/check-content-size.mjs` 对两个内容仓：单文件 > 1 MB、
+  权重/数据/压缩包（`.pt .ckpt .safetensors .npz .parquet .zip`…）直接失败；
+  PNG/JPG > 150 KB、任何图 > 400 KB 提醒转 WebP。真要豁免，写进该内容仓根目录的
+  `.large-files`（每行一个相对路径）。论文墙那边由 `publish_to_site.sh` 管：单图
+  超 200 KB 自动降质重编，发布末尾报 git 仓库体积（2026-09 约 150 MB / 350 篇）。
 - **发布链路**：各内容仓 commit+push 后，**私有站**跑 `~/yufeng-hub/update-site.sh`
   立即生效；**公开站**由 GitHub Actions 构建（壳仓库 push 即触发；纯内容更新靠
   每日 03:17 UTC cron 兜底，急了在有 gh 的机器上
@@ -188,6 +202,9 @@
   里的指向清掉，并把「园地由三个仓库组成」改成四个、后两个私有。
 - **私有站上不设登录**：论文墙不进 vault 门禁，tailnet 内谁都能看。
   这是刻意的选择，和 vault 不同。
+- **挪走挂载做公开构建验证后，必须 `pm2 restart yufeng-hub-wiki`**：dev server
+  看到内容根目录整个消失又出现，多章节子页会 500（`UnknownContentCollectionError`），
+  重启即恢复。日常新增笔记/章节不受影响。
 - 验证方式：`mv public/papers` 挪走再 `pnpm build`，产物应当是 143 页
   （挂载在位是 483 页）且门禁报「未挂载 论文墙」。
 
@@ -217,6 +234,13 @@
   403）。**别把 `src/content/vault` 写回 `secureFsDeny`**：astro dev 的图片端点
   `/_image` 用同一份 deny 名单自检，被拒就 500，私密笔记里的插图登录了也全挂
   （2026-09-07 踩过）。`public/vault-static` 照旧 deny。
+- **构建状态也是私密副本**（2026-09-24 修）：vault 全文还躺在三处路径里不带
+  vault 字样的地方——内容层缓存 `.astro/data-store.json`、它的虚拟模块
+  `/@id/astro:data-layer-content`、上次构建的 `dist/`（含带私密记录的
+  `search-index.json`）。vite 照发项目根下的文件，未登录本来能整份拿走。
+  `mentionsBuildState` 按身份挡这三处（各种编码/点段/base 写法都算）；浏览器
+  看页面从不请求它们，登录者照常放行。以后再有「私密内容被复制到新地方」
+  （新缓存、新产物目录），门禁要跟着加，`check-vault-leak.mjs` 的探针也要加。
 - **方法不设限**：vite 的静态中间件不挑方法，只放行 GET/HEAD 的话一个
   `POST /vault-static/<slug>/index.html` 就能原样取走私密内容。
 - **防漏门禁**：`scripts/check-vault-leak.mjs`（已挂进 `pnpm check`）以未
@@ -226,9 +250,16 @@
 
 ## Skills
 
-- `inbox-triage` — 处理 `~/yufeng-hub/inbox/` 的统一收件箱：自动分拣到
-  wiki / vault / 论文墙 / obsidian，产出、质检、提交、刷新站点。入口技能，
-  「整理 inbox / update hub / 收件箱清一下」都走它。
+文风统一在一处：**`hub-style`**（风格底线 + 四种文章骨架）。下面所有写作 skill 都先读它。
+
+- `paper-digest` — 整理**一篇**文章：arXiv 论文 → 论文墙海报；其他文章 → vault 笔记。
+- `survey` — 一个**方向**的综述：并行调研 → 作者子代理写到定稿 → codex 多轮审
+  （`survey/review.sh`）→ vault。
+- `experiment-log` — 一次**实验**的记录（环境表 / 已证实 / 暂时判断 / 仍未知）→ vault。
+- `publish` — vault 笔记 → 公开 wiki。**只在用户明确要求时**；`publish/scan.sh` 先扫
+  私密链接、凭据、内网地址。
+- `inbox-triage` — 处理 `~/yufeng-hub/inbox/` 的统一收件箱，按上面几条线分拣（默认私密；
+  文首标 `#public` 的才进 wiki）。「整理 inbox / update hub / 收件箱清一下」都走它。
 - 海报单篇生产规范住在模块仓库：`pages/paper-snapshots/.claude/skills/`
   （paper-notes 编排 + paper-poster 单篇规范）——生产内幕跟着流水线走，
   编排入口在本仓库。

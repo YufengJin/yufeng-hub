@@ -1,6 +1,6 @@
 ---
 name: inbox-triage
-description: 处理 ~/yufeng-hub/inbox/ 统一收件箱——把各机器投来的草稿自动分拣到 wiki（公开笔记）/ vault（私密）/ 论文墙（arXiv 海报）/ obsidian（原始素材），逐项产出、质检、提交推送并刷新站点。触发语句如「整理 inbox」「update hub」「收件箱清一下」。
+description: 处理 ~/yufeng-hub/inbox/ 统一收件箱——把各机器投来的草稿自动分拣到 vault（私密，默认）/ 论文墙（arXiv 海报，私有）/ obsidian（原始素材）/ wiki（公开，仅限明确标 #public 的），逐项产出、质检、提交推送并刷新站点。触发语句如「整理 inbox」「update hub」「收件箱清一下」。
 ---
 
 # inbox-triage — 统一收件箱分拣
@@ -19,15 +19,21 @@ ls -la ~/yufeng-hub/inbox/
 
 ## 1. 逐项分类（判据按优先级）
 
+**默认私密。** 公开 wiki 只收用户明确要求公开的条目（文首标 `#public` / `#publish`，或用户
+这次调用时点名「X 发布到公开」）。没有明确指示的一律不进公开 wiki。
+
 1. **论文** → 内容含 arXiv 链接/ID，或 PDF 论文，或「读一下这篇」类请求
-   → **论文墙模块**。
-2. **私密** → 涉及个人身份/财务/健康/求职/家庭，或文首标 `#private`
-   → **vault**。
-3. **成型知识草稿** → 讲一个主题的笔记素材（md/txt，有干货结构）
-   → **wiki**。
-4. **原始素材** → 日记、随手记、剪藏、会议记录等还不成型的
-   → **obsidian 收件箱**。
-5. **判不准** → 留在原地，最终汇报里列出并给出建议分类，等主人定夺。
+   → **论文墙模块**（私有）。按 `paper-digest` skill 的海报线走。
+2. **非 arXiv 的单篇文章**（博客、技术报告、文档链接）要求整理的 → `paper-digest` 的 vault 线。
+3. **方向综述请求**（「综述 X 方向」「从这几篇出发」）→ 不在收件箱里就地做，按 `survey` skill
+   开一条线，汇报里说明已启动。
+4. **实验材料**（日志、曲线、结果表、复现记录）→ `experiment-log` skill → vault。
+5. **成型知识草稿**（讲一个主题的笔记素材，有干货结构）→ **vault**。
+   带 `#public` 标记的才进 **wiki**——并且走 `publish` skill 的扫描那一步再落盘。
+6. **原始素材** → 日记、随手记、剪藏、会议记录等还不成型的 → **obsidian 收件箱**。
+7. **判不准** → 留在原地，最终汇报里列出并给出建议分类，等主人定夺。
+
+所有写作都遵守 `hub-style` skill（先 Read `.claude/skills/hub-style/SKILL.md`）。
 
 ## 2. 各线处理
 
@@ -40,8 +46,9 @@ ls -la ~/yufeng-hub/inbox/
 3. 流水线跑完（海报落地 + `publish_to_site.sh` + 索引重建）后：
    `git -C ~/yufeng-hub/pages/paper-snapshots` add/commit/push。
 
-### 公开笔记 → yufeng-wiki
+### 公开笔记 → yufeng-wiki（仅限带 `#public` 或用户点名公开的条目）
 
+0. 落盘前跑一次 `bash .claude/skills/publish/scan.sh <草稿所在目录>`，命中项先给用户过目。
 1. 在 `~/yufeng-hub/hub-site/src/content/notes/<slug>/index.mdx` 建笔记目录
    （slug 用小写连字符英文；正文中文优先）。
 2. Frontmatter 必填：title/description/kind/domains/tags/status/created/updated；
@@ -57,7 +64,7 @@ pnpm check          # 方言 + 链接门禁，公开与私密两边一起过
 git -C src/content/notes add -A && git -C src/content/notes commit -m "..." && git -C src/content/notes push
 ```
 
-### 私密 → yufeng-vault
+### 私密 → yufeng-vault（默认落点）
 
 同 wiki 流程，落 `~/yufeng-hub/hub-site/src/content/vault/<slug>/index.mdx`
 （**.mdx，不是 .md**）。私密笔记就是 `vault/` 命名空间下的普通笔记，
@@ -86,4 +93,4 @@ bash ~/yufeng-hub/update-site.sh          # 私有站立即生效（公开站等
 ## 4. 汇报
 
 逐项列表：条目 → 判为什么类 → 产出落在哪（路径/URL）→ 哪些挂起待定夺。
-公开站内容要提醒：最迟次日 03:17 UTC 自动上线，急了手动触发。
+有公开条目时提醒：最迟次日 03:17 UTC 自动上线，急了 `gh workflow run deploy.yml -R YufengJin/yufeng-hub`。
