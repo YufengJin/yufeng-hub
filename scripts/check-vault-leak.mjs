@@ -49,6 +49,22 @@ const BLOCKED_ROOT = [
   ]),
   `${BASE}/_image?href=${encodeURIComponent(`/@fs${ROOT_DIR}/src/content/vault/rlinf-learning/img/fig-1.svg?origWidth=880&origHeight=470&origFormat=svg`)}&w=880&h=470&f=svg`,
   `${BASE}/_image?href=${encodeURIComponent(`/@fs${ROOT_DIR}/src/content/notes/../vault/rlinf-learning/img/fig-1.svg`)}`,
+  // 构建状态：路径里不带 vault 字样，却整份装着私密笔记（2026-09-24 修过的
+  // 真漏洞）。.astro/data-store.json 与虚拟模块 astro:data-layer-content 是
+  // 内容层的全文缓存；dist/ 是上一次完整构建的产物（含 vault 页面与带私密
+  // 记录的搜索索引）。vite 把项目根下的文件原样发出去，站根和 base 下都应答。
+  ...['', BASE].flatMap((b) => [
+    `${b}/.astro/data-store.json`,
+    `${b}/@fs${ROOT_DIR}/.astro/data-store.json`,
+    `${b}/@id/astro:data-layer-content`,
+    `${b}/dist/search-index.json`,
+    `${b}/@fs${ROOT_DIR}/dist/vault/rlinf-learning/index.html`,
+  ]),
+  '/@id/__x00__astro:data-layer-content',
+  '/@id/astro:content-module-imports',
+  '/.astro/content-modules.mjs',
+  '/./dist/search-index.json',
+  '/%64ist/search-index.json',
 ];
 
 const failures = [];

@@ -1,5 +1,6 @@
 // @ts-check
 import { posix } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { parse, serialize } from 'parse5';
 
@@ -345,6 +346,61 @@ export function mentionsVaultSource(rawUrl) {
   return false;
 }
 
+/**
+ * 构建状态里的私密副本：`.astro/`（内容层的全文缓存 data-store.json、
+ * content-modules.mjs 里的 vault 文件清单）、内容层的虚拟模块
+ * （`/@id/astro:data-layer-content` 就是那份缓存的 JS 版）。
+ */
+const BUILD_STATE = /(^|\/)\.astro(\/|$)|astro:(data-layer|content|asset-imports)/;
+
+/**
+ * 这次请求碰到**构建状态**了吗？——vault 笔记的全文不只在
+ * src/content/vault/ 里，还被复制进了几处路径里不带 vault 字样的地方：
+ *
+ *  - `.astro/data-store.json`：内容层缓存，每篇笔记的 body 原文都在里面；
+ *  - `/@id/astro:data-layer-content`：同一份缓存的虚拟模块；
+ *  - `dist/`：上一次完整构建（update-site.sh 每次都跑）的产物，vault 页面
+ *    和带私密记录的 search-index.json 原样躺着。
+ *
+ * vite 把项目根下的文件照发，站根和 base 下都应答，`/@fs/<根>/…` 也行
+ * ——2026-09-24 实测未登录 GET /.astro/data-store.json 拿到全部 26 篇私密
+ * 笔记的正文。浏览器正常看页面从不请求这些（只有 SSR 用），所以未登录一律
+ * 挡掉不影响任何功能。判断对 requestPath 的每种形态（解码、折叠点段、剥
+ * base 前后）和 query 里的每个值都做一遍；解码失败当作碰到了。
+ *
+ * @param {string} rawUrl
+ * @param {string} base 以 / 结尾的 base
+ * @param {{ root?: string, outDir?: string }} [dirs] 绝对路径，无尾斜杠
+ */
+export function mentionsBuildState(rawUrl, base, { root = '', outDir = '' } = {}) {
+  const seen = requestPath(rawUrl, base);
+  if (!seen) return true;
+  const pieces = [...seen.variants];
+  const q = rawUrl.search(/[?#]/);
+  if (q !== -1) {
+    let query = rawUrl.slice(q + 1);
+    for (let round = 0; round < 2; round++) {
+      try {
+        query = decodeURIComponent(query);
+      } catch {
+        return true;
+      }
+      for (const piece of query.split(/[?&=#]/)) {
+        if (piece) pieces.push(piece, posix.normalize(piece));
+      }
+      if (!query.includes('%')) break;
+    }
+  }
+  // dist/ 相对项目根的名字（默认 'dist'），以及它的绝对路径（/@fs 那条路）
+  const outRel = root && outDir && outDir.startsWith(`${root}/`) ? outDir.slice(root.length + 1) : '';
+  return pieces.some(
+    (p) =>
+      BUILD_STATE.test(p) ||
+      (outRel !== '' && (p === `/${outRel}` || p.startsWith(`/${outRel}/`))) ||
+      (outDir !== '' && p.includes(`${outDir}/`)),
+  );
+}
+
 /* ---------------- the dev-server middleware ---------------- */
 
 /** 只缓冲可能是页面的响应；图片、脚本、样式一律直通 */
@@ -359,6 +415,8 @@ function looksLikePage(pathname) {
  */
 export function vaultGuard({ enabled = true, locales = [] } = {}) {
   let base = '/';
+  /** 项目根与构建产物目录的绝对路径（mentionsBuildState 用） */
+  const dirs = { root: '', outDir: '' };
   return {
     name: 'hub:vault-guard',
     hooks: {
@@ -366,6 +424,8 @@ export function vaultGuard({ enabled = true, locales = [] } = {}) {
       'astro:config:setup': ({ config }) => {
         const b = config.base || '/';
         base = b.endsWith('/') ? b : `${b}/`;
+        dirs.root = fileURLToPath(config.root).replace(/\/$/, '');
+        dirs.outDir = fileURLToPath(config.outDir).replace(/\/$/, '');
       },
       // 装在 astro:server:setup 而不是 vite 插件的 configureServer 里：门禁
       // 必须排在 inkbrush 的 /api/wiki 中间件**之前**，否则 /api/wiki/notes、
@@ -377,14 +437,15 @@ export function vaultGuard({ enabled = true, locales = [] } = {}) {
       /** @param {{ server: any }} ctx */
       'astro:server:setup': ({ server }) => {
         if (!enabled) return;
-        installGuard(server, base, locales);
+        installGuard(server, base, locales, dirs);
       },
     },
   };
 }
 
-/** @param {any} server @param {string} base @param {readonly string[]} locales */
-function installGuard(server, base, locales) {
+/** @param {any} server @param {string} base @param {readonly string[]} locales
+ *  @param {{ root: string, outDir: string }} dirs */
+function installGuard(server, base, locales, dirs) {
       /** 谁在请求？null = 没有有效会话，或不是本站成员 */
       const identityOf = async (req) => {
         try {
@@ -412,8 +473,10 @@ function installGuard(server, base, locales) {
           return;
         }
         const { path, variants } = seen;
-        // vault 源文件与图片端点：见 mentionsVaultSource
-        const touchesSource = mentionsVaultSource(req.url || '/');
+        // vault 源文件与图片端点：见 mentionsVaultSource；装着私密全文的构建
+        // 状态（.astro/、内容层虚拟模块、dist/）：见 mentionsBuildState
+        const touchesSource =
+          mentionsVaultSource(req.url || '/') || mentionsBuildState(req.url || '/', base, dirs);
 
         // vite 自己的东西（HMR、模块图、内联资源）不经过门禁——除非它指向
         // vault 的源文件（/@fs/…/src/content/vault/…）
