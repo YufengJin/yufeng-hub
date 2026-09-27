@@ -18,7 +18,8 @@ arXiv 论文进论文墙（私有仓库），其余进 vault（私有仓库）�
 ~/yufeng-hub/
 ├── hub-site/                  # 本仓库（壳 + skills + 运营手册）
 │   ├── src/content/notes/     # ← YufengJin/yufeng-wiki（公开笔记，独立 git）
-│   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git；
+│   ├── src/content/vault/     # ← YufengJin/yufeng-vault（私密笔记，独立 git；大项目的私有仓库
+│                              #    再嵌套在它下面，见「大项目 = 独立私有仓库」；
 │                              #    与 notes 同属一个 collection，id 打进 vault/
 │                              #    命名空间，写法与版式和公开笔记完全一致）
 │   ├── public/papers/         # ← mount-papers.sh 装配的海报（勿手改，源在 yufeng-papers；
@@ -122,6 +123,27 @@ arXiv 论文进论文墙（私有仓库），其余进 vault（私有仓库）�
   写 `part: N` 和 `navLabel`。约束有两条，破了直接构建失败：`part` 必须等于该
   章在 nav 里的**全局**位置（跨 group 连续数），nav 里引用的页面必须真实存在。
   分组只能按顺序切连续段——nav 的顺序就是 part 的顺序，也就是阅读顺序。
+
+## 大项目 = 独立私有仓库，挂在 vault 下（2026-09-27 起）
+
+一个持续多轮、记录量大的研究项目，不塞进 yufeng-vault，而是**自己一个私有仓库**，clone 到
+vault 目录里，站上照样是 `/vault/<slug>/` 的多章节 hub。第一个是 `YufengJin/icl-kpmatch`
+（`vault/icl-kpmatch/`）。这样项目记录单独成史、可单独授权，站上的门禁、搜索、隐私一律沿用 vault 的。
+
+- **布局**：`src/content/vault/<slug>/` = 项目仓库根目录；`index.mdx` 是 hub、各章子目录的
+  `index.mdx` 是章节（写法同「多章节 hub 怎么写」）；`site/` 放原始档案，由
+  `mount-vault-static.sh` 装配到 `/vault-static/<slug>/`。README 之类非 `index.mdx` 的文件不进集合。
+- **新加一个项目仓库**：两处手动登记，两处自动生效——
+  1. vault 的 `.gitignore` 加一行 `<slug>/`（提交进 yufeng-vault），否则 vault 会把它当未跟踪文件；
+  2. `inkbrush.config.ts`（本机、gitignored）的 `content.mounts` 加
+     `{ prefix: "vault/<slug>", dir: "src/content/vault/<slug>" }`——最长前缀优先，章节在站上编辑时
+     提交进项目仓库；
+  3. 自动：`update-site.sh` 会逐个 `git pull` vault 下所有嵌套仓库；
+     `check-content-size.mjs` 会把它们各自过一遍存储门禁（vault 的 `ls-files` 看不到被忽略的目录）。
+- **已知边角**：hub 首页本身的 id 是 `vault/<slug>`（前缀后面没有东西），inkbrush 的 `mountFor`
+  把它归到 vault 挂载——在站上编辑**首页**会提交进 vault 并因目录被忽略而失败；首页改动走 git。
+  章节不受影响。
+- **提交**：项目仓库普通 commit + push；改完照常 `pnpm check` 与 `update-site.sh`。
 
 ## 私有站上的阅读环（inkbrush CMS）
 

@@ -11,6 +11,8 @@ cd "$HOME/yufeng-hub/hub-site"
 git pull --ff-only -q || true
 git -C src/content/notes pull --ff-only -q
 git -C src/content/vault pull --ff-only -q
+# 大项目的独立私有仓库嵌套在 vault 下（vault 的 .gitignore 忽略它们），逐个拉
+for d in src/content/vault/*/.git; do [ -e "$d" ] && git -C "${d%/.git}" pull --ff-only -q || true; done
 git -C $HOME/yufeng-hub/pages/paper-snapshots pull --ff-only -q || true
 PAPERS_SRC=$HOME/yufeng-hub/pages/paper-snapshots bash scripts/mount-papers.sh
 bash scripts/mount-vault-static.sh

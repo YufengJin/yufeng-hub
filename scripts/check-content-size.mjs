@@ -19,7 +19,7 @@
  *
  * A repository that is not mounted (the vault in public CI) is skipped.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,7 +36,14 @@ const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif', '.svg']);
 const RASTER = new Set(['.png', '.jpg', '.jpeg']);
 
 const siteDir = fileURLToPath(new URL('..', import.meta.url));
-const repos = ['src/content/notes', 'src/content/vault']
+// 嵌套在 vault 下的独立项目仓库（vault 的 .gitignore 忽略它们，vault 的 ls-files 看不到）各自单独过一遍
+const vaultDir = join(siteDir, 'src/content/vault');
+const nested = existsSync(vaultDir)
+  ? readdirSync(vaultDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && existsSync(join(vaultDir, e.name, '.git')))
+      .map((e) => `src/content/vault/${e.name}`)
+  : [];
+const repos = ['src/content/notes', 'src/content/vault', ...nested]
   .map((d) => join(siteDir, d))
   .filter((d) => existsSync(join(d, '.git')));
 
